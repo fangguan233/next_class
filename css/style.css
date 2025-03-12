@@ -1,0 +1,22 @@
+/* 编辑页面专用样式 */
+#time-slots-editor table {
+    width: 100%;
+    margin: 10px 0;
+    border-collapse: collapse;
+}
+
+#time-slots-editor td, #time-slots-editor th {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+#time-slots-editor input[type="time"] {
+    padding: 5px;
+}
+
+.course-editor-form {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ddd;
+    margin: 10px 0;
+}

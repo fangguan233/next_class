@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>下一节课查询</title>
+    <style>
+        /* 基础页面样式 */
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: #e6f4ff;
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* 主容器 */
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        /* 主标题 */
+        h1 {
+            color: #333;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* 文本输入区 */
+        #inputArea {
+            width: 90%;
+            height: 150px;
+            padding: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+
+        /* 日期选择器 */
+        input[type="date"] {
+            padding: 0.6rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin: 1rem 0;
+            font-size: 0.95rem;
+            width: 20%;
+        }
+
+        /* 按钮组基础样式 */
+        button {
+            padding: 0.8rem;
+            background: #4096ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 0.5rem 0;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #1677ff;
+        }
+
+        /* 结果展示区 */
+        #result, #weekly-schedule {
+            margin-top: 1.5rem;
+            padding: 1.2rem;
+            background: #f6fbff;
+            border: 1px solid #e6f4ff;
+            border-radius: 6px;
+            color: #333;
+        }
+
+        /* 课程管理链接 */
+        a {
+            display: inline-block;
+            margin-top: 1rem;
+            color: #1677ff;
+            text-decoration: none;
+            padding: 0.3rem 0;
+            border-bottom: 1px dashed transparent;
+        }
+
+        a:hover {
+            border-bottom-color: currentColor;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>下一节课信息：</h1>
+        <textarea id="inputArea" placeholder="请粘贴课程数据..."></textarea>
+        <label for="start-date">选择开学第一天（周一）：</label>
+        <input type="date" id="start-date" required>
+        
+        <!-- 按钮容器，已修改为垂直排列 -->
+        <div class="button-container">
+            <button onclick="processData()">尝试ai+导入文本数据</button>
+            <button onclick="window.location.href='edit.html'">课程管理</button>
+            <button onclick="window.location.href='edit_time.html'">时间管理</button>
+            <button onclick="document.getElementById('import-file').click()">导入本地数据</button>
+        </div>
+        
+        <input type="file" id="import-file" accept=".json" style="display: none;">
+        <div id="result"></div>
+        <div id="jsonView"></div>
+        <!-- 新增：本周课程表 -->
+        <div id="weekly-schedule"></div>
+    </div>
+    <script src="/app.js"></script>
+</body>
+</html>
