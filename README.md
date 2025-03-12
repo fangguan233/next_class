@@ -1,9 +1,10 @@
 # next_class
-你的下一个课程表查看工具，查看你的下一节课是什么，在哪里。
+你的下一个课程表查看工具
+简明的优雅的查看你的下一节课是什么。
 # 体验项目
 http://www.psilab.top:12000
 # 部署服务器代码
-当前你需要将next_class文件夹上传至服务器/www/wwwroot/
+当前版本你需要将next_class文件夹上传至服务器/www/wwwroot/
 你需要配置app.js 25行服务器地址为你的服务器地址
 配置server.js 24行开始配置你的api调用方式
 # 启动服务器
@@ -12,4 +13,4 @@ http://www.psilab.top:12000
 PORT=你的端口号 ./deploy.sh
 示例：使用 8080 端口
 PORT=8080 ./deploy.sh
-#
+
