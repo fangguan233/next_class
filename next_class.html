@@ -5,19 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>下一节课查询</title>
     <style>
+        :root {
+            --bg-color: #f0f8ff;
+            --text-color: #000000;
+            --card-bg-color: #ffffff;
+            --btn-bg-color: #0074D9; /* 修改：亮色模式按钮颜色 */
+            --btn-hover-bg-color: #005AB5; /* 修改：亮色模式按钮悬停颜色 */
+            --btn-text-color: #ffffff;
+            --schedule-bg-color: #e6f7ff;
+            --scrollbar-thumb-color: #1890ff;
+        }
+
+        body.dark-mode {
+            --bg-color: #121212;
+            --text-color: #ffffff;
+            --card-bg-color: #1e1e1e;
+            --btn-bg-color: #003366; /* 修改：暗色模式按钮颜色 */
+            --btn-hover-bg-color: #002244; /* 修改：暗色模式按钮悬停颜色 */
+            --btn-text-color: #ffffff;
+            --schedule-bg-color: #121212;
+            --scrollbar-thumb-color: #6573c3;
+        }
+
         body {
             font-family: Arial, sans-serif;
-            background-color: #f0f8ff;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             margin: 0;
             padding: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
+            transition: background-color 0.5s ease; /* 新增：页面背景颜色过渡效果 */
         }
 
         .container {
-            background-color: #fff;
+            background-color: var(--card-bg-color);
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             max-width: 90%;
@@ -26,7 +50,7 @@
         }
 
         .card {
-            padding: 20px;
+            padding: 5px;
             text-align: center;
         }
 
@@ -37,59 +61,61 @@
         .btn-group {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            padding: 20px;
-            background-color: #e6f7ff;
+            gap: 3px;
+            padding: 5px;
+            background-color: var(--schedule-bg-color);
         }
 
         button {
             padding: 10px;
             border: none;
             border-radius: 5px;
-            background-color: #1890ff;
-            color: white;
+            background-color: var(--btn-bg-color);
+            color: var(--btn-text-color);
             cursor: pointer;
-            transition: background-color 0.3s ease;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease; /* 新增：按钮过渡效果 */
         }
 
         button:hover {
-            background-color: #40a9ff;
+            background-color: var(--btn-hover-bg-color);
+            transform: scale(1.05); /* 新增：按钮放大效果 */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 新增：按钮阴影效果 */
         }
 
-        #weekly-schedule {
-            max-height: 0; /* 初始状态为收起 */
-            overflow-y: hidden; /* 禁用滑动 */
+        #weekly-schedule, #weather-details {
+            max-height: 0;
+            overflow-y: hidden;
             transition: max-height 0.3s ease;
         }
 
-        .schedule-content {
+        .schedule-content, .weather-content {
             padding: 20px;
             text-align: left;
         }
 
-        .schedule-content::-webkit-scrollbar {
+        .schedule-content::-webkit-scrollbar, .weather-content::-webkit-scrollbar {
             width: 8px;
         }
 
-        .schedule-content::-webkit-scrollbar-track {
-            background: #e6f7ff;
+        .schedule-content::-webkit-scrollbar-track, .weather-content::-webkit-scrollbar-track {
+            background: var(--schedule-bg-color);
             border-radius: 4px;
         }
 
-        .schedule-content::-webkit-scrollbar-thumb {
-            background-color: #1890ff;
+        .schedule-content::-webkit-scrollbar-thumb, .weather-content::-webkit-scrollbar-thumb {
+            background-color: var(--scrollbar-thumb-color);
             border-radius: 4px;
-            border: 2px solid #e6f7ff;
+            border: 2px solid var(--schedule-bg-color);
         }
 
-        .schedule-content::-webkit-scrollbar-thumb:hover {
-            background: #40a9ff;
+        .schedule-content::-webkit-scrollbar-thumb:hover, .weather-content::-webkit-scrollbar-thumb:hover {
+            background: var(--btn-hover-bg-color);
         }
 
         .toggle-btn {
             margin-top: 10px;
-            background-color: #1890ff;
-            color: white;
+            background-color: var(--btn-bg-color);
+            color: var(--btn-text-color);
             border: none;
             padding: 10px;
             border-radius: 5px;
@@ -103,32 +129,111 @@
             <h1>下一节课信息</h1>
             <p>这里显示下一节课的信息。</p>
         </div>
+        <div class="card" id="weather">
+            <div id="weather-details" class="weather-content">
+                <p id="weather-info">加载中...</p>
+            </div>
+        </div>
         <div id="weekly-schedule" class="schedule-content">
             <!-- 课程表内容由 next_class.js 生成 -->
         </div>
         <div class="btn-group">
-            <button class="toggle-btn" onclick="toggleSchedule()">展开课程表</button>
-            <button onclick="clearLocalStorage()">删除本地存储</button>
+            <button class="toggle-btn" id="schedule-toggle-btn" onclick="toggleSchedule()">展开课程表</button>
+            <button class="toggle-btn" id="weather-toggle-btn" onclick="toggleWeather()">明天的天气</button>
+            <button onclick="clearLocalStorageWithPrompt()">删除本地存储</button>
             <button onclick="exportLocalStorage()">导出本地数据</button>
             <button onclick="window.location.href='/edit.html'">编辑课程表</button>
             <button onclick="window.location.href='/edit_time.html'">编辑时间设置</button>
+            <button onclick="clearLocation()">刷新天气数据</button>
+            <!-- 新增：模式切换按钮 -->
+            <button onclick="toggleDarkMode()">切换暗色/亮色模式</button>
         </div>
     </div>
 
     <script>
+        function clearLocalStorageWithPrompt() {
+            const confirmFirst = confirm("您确定要删除本地存储的数据吗？此操作不可逆！");
+            if (!confirmFirst) {
+                alert("删除操作已取消");
+                return;
+            }
+
+            const confirmSecond = confirm("警告：删除后数据将无法恢复！请再次确认！");
+            if (!confirmSecond) {
+                alert("删除操作已取消");
+                return;
+            }
+
+            localStorage.removeItem('courses');
+            localStorage.removeItem('startDate');
+            alert('本地存储已清除');
+            window.location.href = '/index.html';
+        }
+    </script>
+    <script>
         function toggleSchedule() {
             const schedule = document.getElementById('weekly-schedule');
-            const btn = document.querySelector('.toggle-btn');
+            const btn = document.getElementById('schedule-toggle-btn');
 
             if (schedule.style.maxHeight === '0px' || !schedule.style.maxHeight) {
                 schedule.style.maxHeight = '300px';
-                schedule.style.overflowY = 'auto'; // 允许滑动
+                schedule.style.overflowY = 'auto';
                 btn.textContent = "收起课程表";
             } else {
                 schedule.style.maxHeight = '0px';
-                schedule.style.overflowY = 'hidden'; // 禁用滑动
-                schedule.scrollTop = 0; // 重置滚动条位置
+                schedule.style.overflowY = 'hidden';
+                schedule.scrollTop = 0;
                 btn.textContent = "展开课程表";
+            }
+        }
+    </script>
+    <script>
+        function toggleWeather() {
+            const weatherDetails = document.getElementById('weather-details');
+            const btn = document.getElementById('weather-toggle-btn');
+
+            if (weatherDetails.style.maxHeight === '0px' || !weatherDetails.style.maxHeight) {
+                weatherDetails.style.maxHeight = '200px';
+                weatherDetails.style.overflowY = 'auto';
+                btn.textContent = "收起天气预报";
+            } else {
+                weatherDetails.style.maxHeight = '0px';
+                weatherDetails.style.overflowY = 'hidden';
+                weatherDetails.scrollTop = 0;
+                btn.textContent = "明天的天气";
+            }
+        }
+    </script>
+    <script>
+        // 暗色/亮色模式切换函数
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const currentMode = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+            localStorage.setItem('theme', currentMode); // 保存用户选择的主题
+            updateModeButtonText(); // 更新按钮文本以反映当前模式
+        }
+
+        // 页面加载时根据存储的主题设置模式
+        window.onload = function () {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode'); // 确保移除不必要的类名
+            }
+            initializeTimeConfig();
+            displayNextClass();
+            fetchWeather();
+            updateModeButtonText(); // 初始化时更新按钮文本
+        };
+
+        // 新增：更新模式切换按钮的文本
+        function updateModeButtonText() {
+            const btn = document.querySelector('button[onclick="toggleDarkMode()"]');
+            if (document.body.classList.contains('dark-mode')) {
+                btn.textContent = "切换到亮色模式";
+            } else {
+                btn.textContent = "切换到暗色模式";
             }
         }
     </script>

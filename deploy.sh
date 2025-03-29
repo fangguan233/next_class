@@ -48,11 +48,31 @@ prepare_static_resources() {
     echo "静态资源已复制到 public 目录。"
 }
 
+# 确保证书路径存在
+ensure_ssl_certificates() {
+    echo "确保证书路径存在..."
+    CERT_DIR="/path/to/certs"
+    mkdir -p "$CERT_DIR"
+    touch "$CERT_DIR/private.key" "$CERT_DIR/certificate.crt" "$CERT_DIR/chain.pem"
+    echo "证书路径已创建：$CERT_DIR"
+    echo "请将实际的 SSL 证书文件放置在 $CERT_DIR 下，并确保其权限正确。"
+}
+
+# 确保 .well-known/pki-validation 路径存在并创建占位文件
+ensure_well_known_files() {
+    echo "确保 .well-known/pki-validation 路径存在..."
+    WELL_KNOWN_DIR=".well-known/pki-validation"
+    mkdir -p "$WELL_KNOWN_DIR"
+    touch "$WELL_KNOWN_DIR/fileauth.txt"
+    echo "占位文件已创建：$WELL_KNOWN_DIR/fileauth.txt"
+    echo "请将实际的 fileauth.txt 文件内容填充到该路径下。"
+}
+
 # 设置端口环境变量
 set_port() {
     if [ -z "$PORT" ]; then
-        echo "未设置 PORT 环境变量，将使用默认端口 3000。"
-        export PORT=3000
+        echo "未设置 PORT 环境变量，将使用默认端口 8443。"
+        export PORT=8443
     else
         echo "已设置 PORT 环境变量，服务将运行在端口 $PORT。"
     fi
@@ -61,7 +81,7 @@ set_port() {
 # 启动服务
 start_server() {
     echo "正在启动服务..."
-    nohup node server.js > server.log 2>&1 &
+    nohup node server.js --https --port 8443 > server.log 2>&1 &
     echo $! > server.pid
     if [ $? -ne 0 ]; then
         echo "错误：服务启动失败，请检查 server.js 文件。"
@@ -77,6 +97,8 @@ main() {
     check_npm
     install_dependencies
     prepare_static_resources
+    ensure_ssl_certificates
+    ensure_well_known_files # 新增：确保 .well-known 路径和文件存在
     set_port
     start_server
 }

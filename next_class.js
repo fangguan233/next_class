@@ -180,8 +180,6 @@ function exportLocalStorage() {
     }
 }
 
-// 删除多余的未闭合代码块
-
 // 确保 displayNextClass 函数完整定义
 function displayNextClass() {
     const storedCourses = localStorage.getItem('courses');
@@ -230,48 +228,6 @@ function clearLocalStorage() {
     localStorage.removeItem('startDate'); // 确保清除所有相关数据
     alert('本地存储已清除');
     window.location.href = '/index.html'; // 删除数据后跳转回 index.html
-}
-
-// 页面加载时自动显示下一节课信息
-function displayNextClass() {
-    const storedCourses = localStorage.getItem('courses');
-    if (!storedCourses) {
-        document.getElementById('result').innerHTML = `<p style="color: red">错误：未找到课程数据，请先输入课程数据。</p>`;
-        return;
-    }
-
-    try {
-        // 增加数据验证
-        let courses;
-        try {
-            courses = JSON.parse(storedCourses);
-            if (!Array.isArray(courses)) {
-                throw new Error("课程数据格式不正确");
-            }
-        } catch (parseError) {
-            console.error("课程数据解析失败：", parseError.message);
-            document.getElementById('result').innerHTML = `<p style="color: red">错误：课程数据格式不正确，请检查本地存储。</p>`;
-            return;
-        }
-
-        const nextClass = findNextClass(courses);
-
-        if (nextClass) {
-            document.getElementById('result').innerHTML = `
-                <h3>下一节课信息：</h3>
-                <p>课程名称：${nextClass.course}</p>
-                <p>上课时间：周${nextClass.day} ${nextClass.time_slot}节</p>
-                <p>上课地点：${nextClass.campus} ${nextClass.building} ${nextClass.classroom}</p>
-            `;
-        } else {
-            document.getElementById('result').innerHTML = "<p>今天没有后续课程了</p>";
-        }
-
-        generateWeeklySchedule();
-    } catch (error) {
-        console.error("显示下一节课失败：", error.message);
-        document.getElementById('result').innerHTML = `<p style="color: red">错误：${error.message}</p>`;
-    }
 }
 
 // 初始化默认时间配置
@@ -344,12 +300,6 @@ function importTimeConfig() {
     };
     input.click();
 }
-
-// 页面加载时调用初始化函数
-window.onload = function () {
-    initializeTimeConfig();
-    displayNextClass();
-};
 
 // 计算下一节课的逻辑
 function findNextClass(courses) {
@@ -504,4 +454,91 @@ function isFutureClass(day, hour, minute, now) {
         return classTime > currentTime;
     }
     return false;
+}
+
+// 新增：存储用户地址
+function storeLocation(longitude, latitude) {
+    localStorage.setItem('userLocation', `${longitude},${latitude}`);
+}
+
+// 新增：删除存储的经纬度数据
+function clearLocation() {
+    localStorage.removeItem('userLocation');
+    alert('经纬度数据已清除，天气数据将重新获取。');
+    fetchWeather(); // 重新获取天气数据
+}
+
+// 修改：获取用户地理位置并调用天气API
+async function fetchWeather() {
+    const weatherInfoElement = document.getElementById('weather-info');
+
+    // 尝试从本地存储获取经纬度
+    let location = localStorage.getItem('userLocation');
+    if (!location) {
+        try {
+            const position = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject);
+            });
+            const { latitude, longitude } = position.coords;
+            location = `${longitude},${latitude}`;
+            storeLocation(longitude, latitude); // 存储经纬度
+        } catch (geoError) {
+            console.error('获取用户地理位置失败:', geoError.message);
+
+            // 提示用户手动输入经纬度，并增加详细说明
+            const manualInput = prompt(
+                '无法自动获取您的地理位置，请手动输入经纬度（格式：经度,纬度），例如：121.07,37.39（烟台大学八角湾）(取消默认填入）。\n注意：请确保输入的经纬度有效，可以在手机指南针查看。'
+            );
+            if (manualInput) {
+                const [longitude, latitude] = manualInput.split(',').map(Number);
+                if (!isNaN(longitude) && !isNaN(latitude)) {
+                    location = `${longitude},${latitude}`;
+                    storeLocation(longitude, latitude); // 存储经纬度
+                } else {
+                    weatherInfoElement.innerHTML = '<p style="color: red;">无效的经纬度格式，请重试。</p>';
+                    return;
+                }
+            } else {
+                // 用户点击取消，使用默认坐标
+                location = '121.07,37.39'; // 默认坐标（烟台大学）
+                storeLocation(121.07, 37.39); // 存储默认坐标
+            }
+        }
+    }
+
+    // 替换为有效的 API Key
+    const apiKey = '921d41d032274310ab1fe3c774dcff13'; // 替换为实际API Key
+    const apiUrl = `https://devapi.qweather.com/v7/grid-weather/3d?location=${location}`;
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'X-QW-Api-Key': apiKey,
+                'Accept-Encoding': 'gzip, deflate' // 支持压缩
+            }
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+
+        if (data.code !== '200') {
+            throw new Error(`API error: ${data.code}`);
+        }
+
+        // 提取第二天的天气数据
+        const tomorrowWeather = data.daily[1];
+        const weatherHtml = `
+            <p>日期: ${tomorrowWeather.fxDate}</p>
+            <p>天气: ${tomorrowWeather.textDay}</p>
+            <p>温度: ${tomorrowWeather.tempMin}°C ~ ${tomorrowWeather.tempMax}°C</p>
+            <p>风力: ${tomorrowWeather.windDirDay} ${tomorrowWeather.windScaleDay}级</p>
+            <p>湿度: ${tomorrowWeather.humidity}%</p>
+        `;
+        weatherInfoElement.innerHTML = weatherHtml;
+    } catch (error) {
+        console.error('获取天气数据失败:', error.message);
+        weatherInfoElement.innerHTML = `<p style="color: red;">无法加载天气信息，请检查网络或稍后重试。<br>错误详情：${error.message}</p>`;
+    }
 }

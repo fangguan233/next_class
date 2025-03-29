@@ -22,7 +22,7 @@ async function processData() {
         }
 
         // 调用后端接口
-        const response = await fetch('http://www.example.com:3000/process-data', {
+        const response = await fetch('http://222.79.105.63:12000/process-data', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

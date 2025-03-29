@@ -16,18 +16,19 @@ app.use(bodyParser.json());
 const loggerMiddleware = require('./loggerMiddleware');
 app.use(loggerMiddleware);
 
-// 静态文件服务
+// 静态文件服务：新增对 .well-known 的支持
 const path = require('path');
+app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // AI接口调用函数
 async function callAIModel(userInput) {
     console.log("调用 AI 接口，处理用户输入...");
     try {
-        const apiUrl = 'API_URL';
+        const apiUrl = 'https://wcode.net/api/gpt/v1/chat/completions';
         const headers = {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer <APIKEY>'
+            'Authorization': 'Bearer sk-518.hoDkp2YdOZdewAwO0u7NzZGW5Kqh1AIwYX3KqOI1q5ht6aNt'
         };
         const data = {
             model: "qwen2.5-72b-instruct",
@@ -104,7 +105,27 @@ app.post('/process-data', async (req, res) => {
     }
 });
 
-// 启动服务器
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
+// 使用 helmet 中间件来强制 HTTPS
+app.use(helmet());
+app.use(helmet.hsts({
+    maxAge: 31536000, // 一年
+    includeSubDomains: true,
+    preload: true
+}));
+
+// 添加 HTTPS 配置
+const https = require('https');
+const fs = require('fs');
+
+// 证书路径调整（示例使用8443端口）
+const sslOptions = {
+    key: fs.readFileSync('/path/to/private.key'),
+    cert: fs.readFileSync('/path/to/certificate.crt'),
+    ca: fs.readFileSync('/path/to/chain.pem') // 中级证书链
+};
+
+// 创建HTTPS服务器（监听8443端口）
+https.createServer(sslOptions, app)
+    .listen(8443, () => {
+        console.log(`HTTPS服务运行在8443端口`);
+    });
