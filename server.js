@@ -117,11 +117,10 @@ app.use(helmet.hsts({
 const https = require('https');
 const fs = require('fs');
 
-// 证书路径调整（示例使用8443端口）
+// 使用Let's Encrypt证书路径
 const sslOptions = {
-    key: fs.readFileSync('/path/to/private.key'),
-    cert: fs.readFileSync('/path/to/certificate.crt'),
-    ca: fs.readFileSync('/path/to/chain.pem') // 中级证书链
+    key: fs.readFileSync('/etc/letsencrypt/live/www.psilab.top/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/www.psilab.top/fullchain.pem')
 };
 
 // 创建HTTPS服务器（监听8443端口）

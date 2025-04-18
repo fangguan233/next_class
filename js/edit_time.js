@@ -1,4 +1,4 @@
-// 新增 loadTimeSlots 函数
+// 加载时间段函数
 function loadTimeSlots() {
     try {
         let storedData = localStorage.getItem('timeConfig');
@@ -37,11 +37,11 @@ function loadTimeSlots() {
         timeConfig.time_slots.forEach((slot, index) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="number" value="${slot.section}" ${index === 0 ? 'readonly' : ''}></td>
-                <td><input type="time" value="${slot.start}"></td>
-                <td><input type="time" value="${slot.end}"></td>
-                <td>
-                    ${index === 0 ? '' : '<button onclick="deleteTimeSlot(this)">删除</button>'}
+                <td class="border border-gray-300 p-2"><input type="number" value="${slot.section}" ${index === 0 ? 'readonly' : ''} class="w-full p-1 border border-gray-300 rounded"></td>
+                <td class="border border-gray-300 p-2"><input type="time" value="${slot.start}" class="w-full p-1 border border-gray-300 rounded"></td>
+                <td class="border border-gray-300 p-2"><input type="time" value="${slot.end}" class="w-full p-1 border border-gray-300 rounded"></td>
+                <td class="border border-gray-300 p-2">
+                    ${index === 0 ? '' : '<button onclick="deleteTimeSlot(this)" class="px-2 py-1 text-sm bg-light-btn dark:bg-dark-btn text-white border-none rounded cursor-pointer transition-all duration-200 hover:bg-light-btnHover dark:hover:bg-dark-btnHover">删除</button>'}
                 </td>
             `;
             tbody.appendChild(tr);
@@ -68,37 +68,47 @@ function loadTimeSlots() {
                 { section: 14, start: "19:55", end: "20:40" }
             ]
         };
+        
         const tbody = document.getElementById('time-slots-body');
         tbody.innerHTML = '';
+        
         defaultTimeConfig.time_slots.forEach((slot, index) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="number" value="${slot.section}" ${index === 0 ? 'readonly' : ''}></td>
-                <td><input type="time" value="${slot.start}"></td>
-                <td><input type="time" value="${slot.end}"></td>
-                <td>
-                    ${index === 0 ? '' : '<button onclick="deleteTimeSlot(this)">删除</button>'}
+                <td class="border border-gray-300 p-2"><input type="number" value="${slot.section}" ${index === 0 ? 'readonly' : ''} class="w-full p-1 border border-gray-300 rounded"></td>
+                <td class="border border-gray-300 p-2"><input type="time" value="${slot.start}" class="w-full p-1 border border-gray-300 rounded"></td>
+                <td class="border border-gray-300 p-2"><input type="time" value="${slot.end}" class="w-full p-1 border border-gray-300 rounded"></td>
+                <td class="border border-gray-300 p-2">
+                    ${index === 0 ? '' : '<button onclick="deleteTimeSlot(this)" class="px-2 py-1 text-sm bg-light-btn dark:bg-dark-btn text-white border-none rounded cursor-pointer transition-all duration-200 hover:bg-light-btnHover dark:hover:bg-dark-btnHover">删除</button>'}
                 </td>
             `;
             tbody.appendChild(tr);
         });
+        
+        // 保存默认配置到本地存储
+        localStorage.setItem('timeConfig', JSON.stringify(defaultTimeConfig));
     }
 }
 
+function showAddTimeSlotForm() {
+    addTimeSlot();
+    updateDynamicElements();
+}
+
 function addTimeSlot() {
-const tbody = document.getElementById('time-slots-body');
-const tr = document.createElement('tr');
-tr.innerHTML = `
-    <td><input type="number" value="${tbody.children.length + 1}"></td>
-    <td><input type="time"></td>
-    <td><input type="time"></td>
-    <td><button onclick="deleteTimeSlot(this)">删除</button></td>
-`;
-tbody.appendChild(tr);
+    const tbody = document.getElementById('time-slots-body');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td class="border border-gray-300 p-2"><input type="number" value="${tbody.children.length + 1}" class="w-full p-1 border border-gray-300 rounded"></td>
+        <td class="border border-gray-300 p-2"><input type="time" class="w-full p-1 border border-gray-300 rounded"></td>
+        <td class="border border-gray-300 p-2"><input type="time" class="w-full p-1 border border-gray-300 rounded"></td>
+        <td class="border border-gray-300 p-2"><button onclick="deleteTimeSlot(this)" class="px-2 py-1 text-sm bg-light-btn dark:bg-dark-btn text-white border-none rounded cursor-pointer transition-all duration-200 hover:bg-light-btnHover dark:hover:bg-dark-btnHover">删除</button></td>
+    `;
+    tbody.appendChild(tr);
 }
 
 function deleteTimeSlot(button) {
-button.closest('tr').remove();
+    button.closest('tr').remove();
 }
 
 // 修复保存逻辑
@@ -133,9 +143,149 @@ function saveTimeSlots() {
         };
 
         localStorage.setItem('timeConfig', JSON.stringify(configData));
-        alert('时间段配置已保存');
+        
+        // 显示结果
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = '时间段配置已保存成功！';
+        resultDiv.classList.remove('hidden');
+        
+        // 3秒后隐藏结果
+        setTimeout(() => {
+            resultDiv.classList.add('hidden');
+        }, 3000);
     } catch (error) {
-        alert(`保存失败: ${error.message}`);
+        // 显示错误信息
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = `保存失败: ${error.message}`;
+        resultDiv.classList.remove('hidden');
+        
+        // 3秒后隐藏结果
+        setTimeout(() => {
+            resultDiv.classList.add('hidden');
+        }, 3000);
+        
         console.error("保存时间段错误:", error);
     }
+}
+
+// 保存时间配置
+function saveTimeConfig() {
+    const startDate = document.getElementById('start-date').value;
+    if (!startDate) {
+        // 显示错误信息
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = '请选择开学日期';
+        resultDiv.classList.remove('hidden');
+        
+        // 3秒后隐藏结果
+        setTimeout(() => {
+            resultDiv.classList.add('hidden');
+        }, 3000);
+        return;
+    }
+    
+    localStorage.setItem('startDate', new Date(startDate).toISOString());
+    
+    // 显示结果
+    const resultDiv = document.getElementById('result');
+    resultDiv.innerHTML = '时间配置已保存成功！';
+    resultDiv.classList.remove('hidden');
+    
+    // 3秒后隐藏结果
+    setTimeout(() => {
+        resultDiv.classList.add('hidden');
+    }, 3000);
+}
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 加载时间配置
+    const startDate = localStorage.getItem('startDate');
+    if (startDate) {
+        document.getElementById('start-date').value = startDate.split('T')[0];
+    }
+    
+    // 初始化时间段表格
+    const timeSlotList = document.getElementById('time-slot-list');
+    if (!timeSlotList.querySelector('table')) {
+        timeSlotList.innerHTML = `
+            <table class="w-full border-collapse border border-gray-300 dark:border-gray-700 responsive-table">
+                <thead>
+                    <tr>
+                        <th class="border border-gray-300 dark:border-gray-700 p-2">节次</th>
+                        <th class="border border-gray-300 dark:border-gray-700 p-2">开始时间</th>
+                        <th class="border border-gray-300 dark:border-gray-700 p-2">结束时间</th>
+                        <th class="border border-gray-300 dark:border-gray-700 p-2">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="time-slots-body">
+                    <!-- 时间段数据将在这里动态加载 -->
+                </tbody>
+            </table>
+        `;
+    }
+    
+    // 加载时间段数据
+    loadTimeSlots();
+    
+    // 设置主题
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.style.setProperty('--scrollbar-color', '#003366');
+    } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.style.setProperty('--scrollbar-color', '#4096ff');
+    }
+    updateModeButtonText();
+    updateDynamicElements();
+});
+
+// 更新主题模式按钮文本
+function updateModeButtonText() {
+    const modeButton = document.getElementById('dark-mode-toggle');
+    if (modeButton) {
+        const isDarkMode = document.documentElement.classList.contains('dark');
+        modeButton.textContent = isDarkMode ? '切换到亮色模式' : '切换到暗色模式';
+    }
+}
+
+// 更新动态元素
+function updateDynamicElements() {
+    // 更新表格样式
+    const tables = document.querySelectorAll('table');
+    tables.forEach(table => {
+        table.classList.add('responsive-table');
+        if (document.documentElement.classList.contains('dark')) {
+            table.style.backgroundColor = '#2d2d2d';
+            table.style.color = '#fff';
+        } else {
+            table.style.backgroundColor = '#f9f9f9';
+            table.style.color = '#333';
+        }
+    });
+    
+    // 更新表头样式
+    const tableHeaders = document.querySelectorAll('th');
+    tableHeaders.forEach(th => {
+        if (document.documentElement.classList.contains('dark')) {
+            th.style.backgroundColor = '#003366';
+            th.style.color = 'white';
+        } else {
+            th.style.backgroundColor = '#4096ff';
+            th.style.color = 'white';
+        }
+    });
+    
+    // 更新输入框样式
+    const inputs = document.querySelectorAll('input, select');
+    inputs.forEach(input => {
+        if (document.documentElement.classList.contains('dark')) {
+            input.classList.add('dark:bg-gray-700', 'dark:border-gray-600', 'dark:text-white');
+            input.classList.remove('bg-white', 'border-gray-300', 'text-gray-800');
+        } else {
+            input.classList.add('bg-white', 'border-gray-300', 'text-gray-800');
+            input.classList.remove('dark:bg-gray-700', 'dark:border-gray-600', 'dark:text-white');
+        }
+    });
 }

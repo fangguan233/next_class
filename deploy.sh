@@ -71,8 +71,8 @@ ensure_well_known_files() {
 # 设置端口环境变量
 set_port() {
     if [ -z "$PORT" ]; then
-        echo "未设置 PORT 环境变量，将使用默认端口 8443。"
-        export PORT=8443
+        echo "未设置 PORT 环境变量，将使用默认端口 12000。"
+        export PORT=12000
     else
         echo "已设置 PORT 环境变量，服务将运行在端口 $PORT。"
     fi
@@ -91,14 +91,40 @@ start_server() {
     echo "日志文件：server.log"
 }
 
+# SSL证书设置
+setup_ssl() {
+    echo "正在设置SSL证书..."
+    sudo apt-get update
+    sudo apt-get install -y certbot
+
+    # 生成随机token并提示用户更新DNS
+    echo "请按以下步骤操作："
+    echo "1. 访问DNS管理界面"
+    echo "2. 添加TXT记录：_acme-challenge.www.psilab.top"
+    echo "3. 输入以下值："
+    openssl rand -hex 32 | tee dns-token.txt
+    read -p "完成DNS设置后按回车继续..."
+    
+    # 获取证书
+    sudo certbot certonly --manual --preferred-challenges dns \
+        -d www.psilab.top \
+        --non-interactive \
+        --agree-tos \
+        --manual-public-ip-logging-ok \
+        --email admin@psilab.top
+    
+    # 设置自动续期
+    (crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --manual-auth-hook ./update-dns.sh") | crontab -
+    echo "证书自动续期任务已设置"
+}
+
 # 主流程
 main() {
     check_node
     check_npm
     install_dependencies
     prepare_static_resources
-    ensure_ssl_certificates
-    ensure_well_known_files # 新增：确保 .well-known 路径和文件存在
+    setup_ssl  # 替换原有的证书确保流程
     set_port
     start_server
 }
