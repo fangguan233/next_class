@@ -230,7 +230,7 @@ function getStartTime(timeSlot) {
 
     const [startSection] = timeSlot.split('-').map(Number);
     const defaultTimeSlots = [
-        { section: 1, start: "08:00" },
+        { section: 1, start: "00:00" },
         { section: 2, start: "08:55" },
         { section: 3, start: "09:50" },
         { section: 4, start: "10:45" },
