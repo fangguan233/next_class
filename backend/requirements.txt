@@ -1,0 +1,4 @@
+Flask[async]
+python-dotenv
+openai
+urllib3==1.26.18

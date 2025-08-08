@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>下一节课</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // 配置Tailwind主题
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        light: {
+                            bg: '#f0f5ff',
+                            text: '#333',
+                            card: '#fff',
+                            accent: '#4096ff',
+                            accentHover: '#1677ff'
+                        },
+                        dark: {
+                            bg: '#1f2937', // 深灰蓝背景
+                            text: '#d1d5db', // 浅灰色文字
+                            card: '#374151', // 卡片背景
+                            accent: '#60a5fa', // 亮蓝色强调色
+                            accentHover: '#3b82f6' // 更亮的蓝色
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 10px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+        }
+    </style>
+</head>
+<body class="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text font-sans min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-300">
+    <div class="w-full max-w-lg mx-auto bg-light-card dark:bg-dark-card rounded-2xl shadow-xl p-6 sm:p-8">
+        <!-- 新的水平滚动天气容器 -->
+        <div id="weather-container" class="mb-6 hidden">
+            <h3 class="text-lg font-semibold mb-2 text-light-text dark:text-dark-text">逐小时预报</h3>
+            <div class="flex overflow-x-auto space-x-4 pb-4 custom-scrollbar">
+                <!-- 小时天气卡片将在这里动态生成 -->
+            </div>
+        </div>
+        <div id="result" class="text-center mb-6">
+            <!-- 下一节课信息将在这里显示 -->
+        </div>
+        <div id="weekly-schedule" class="space-y-4 max-h-96 overflow-y-auto custom-scrollbar pr-2">
+            <!-- 本周课程表将在这里显示 -->
+        </div>
+        <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <button onclick="window.location.href='index.html'" class="w-full px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">
+                设置界面
+            </button>
+            <button onclick="exportLocalStorage()" class="w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">
+                导出数据
+            </button>
+            <button onclick="clearLocalStorage()" class="w-full px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">
+                清除本地数据
+            </button>
+        </div>
+    </div>
+    <script src="next_class.js"></script>
+</body>
+</html>
