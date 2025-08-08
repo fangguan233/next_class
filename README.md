@@ -1,4 +1,4 @@
-# 智能课程表 v1.1-demo
+# next_class v1.1-demo
 
 ## 项目简介
 
