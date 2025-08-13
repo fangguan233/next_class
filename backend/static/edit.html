@@ -1,9 +1,15 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="zh-CN" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>编辑课程</title>
+    <script>
+        // Anti-flicker script
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -23,15 +29,16 @@
                             btnDangerHover: '#d9363e'
                         },
                         dark: {
-                            bg: '#1a1a1a',
-                            text: '#e0e0e0',
-                            card: '#2c2c2c',
-                            input: '#333',
-                            inputBorder: '#555',
+                            bg: '#121212',
+                            text: '#E0E0E0',
+                            card: '#1A1A1A',
+                            input: '#222222',
+                            inputBorder: '#3A3A3A',
                             btn: '#003366',
                             btnHover: '#002244',
-                            btnDanger: '#a61d24',
-                            btnDangerHover: '#800f19'
+                            btnText: '#FFFFFF',
+                            btnDanger: '#CF6679',
+                            btnDangerHover: '#E57373'
                         }
                     }
                 }
@@ -43,18 +50,46 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 10px; }
         .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #4b5563; }
+        .course-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+            padding: 0;
+        }
+        .course-body.active {
+            max-height: 1000px; /* 一个足够大的值 */
+            overflow: visible;
+            padding: 1rem 0;
+            transition: max-height 0.5s ease-in, padding 0.5s ease-in;
+        }
     </style>
 </head>
 <body class="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text font-sans min-h-screen flex flex-col items-center p-4 transition-colors duration-300">
-    <div class="w-full max-w-4xl mx-auto bg-light-card dark:bg-dark-card rounded-2xl shadow-xl p-6 sm:p-8">
-        <h1 class="text-2xl font-bold text-center mb-6">课程管理</h1>
-        <div id="courses-container" class="space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
-            <!-- 课程将在这里动态加载 -->
+    <div class="w-full max-w-2xl mx-auto">
+        <div class="bg-light-card dark:bg-dark-card rounded-2xl shadow-xl p-6 sm:p-8">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h1 class="text-2xl font-bold">课程管理</h1>
+                <div class="flex items-center space-x-2">
+                    <button onclick="addCourse()" class="flex items-center justify-center px-4 py-2 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text font-semibold rounded-lg shadow-md hover:bg-light-btnHover dark:hover:bg-dark-btnHover transition-all duration-200">
+                        <span class="sm:hidden">新增</span>
+                        <span class="hidden sm:inline">新增课程</span>
+                    </button>
+                    <button onclick="saveAllChanges()" class="flex items-center justify-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">
+                        <span class="sm:hidden">保存</span>
+                        <span class="hidden sm:inline">保存课程</span>
+                    </button>
+                </div>
+            </div>
+            <div class="mb-6 p-4 bg-light-bg dark:bg-dark-bg rounded-lg">
+                <label for="start-date" class="block text-md font-medium mb-2">开学第一天 (周一)</label>
+                <input type="date" id="start-date" name="start-date" class="w-full sm:w-auto p-2 rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder">
+            </div>
+            <div id="courses-container" class="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                <!-- 课程将在这里动态加载 -->
+            </div>
         </div>
-        <div class="mt-6 flex flex-col sm:flex-row justify-center items-center gap-4">
-            <button onclick="addCourse()" class="w-full sm:w-auto px-6 py-3 bg-light-btn dark:bg-dark-btn text-white font-semibold rounded-lg shadow-md hover:bg-light-btnHover dark:hover:bg-dark-btnHover transition-all duration-200">添加新课程</button>
-            <button onclick="saveAllChanges()" class="w-full sm:w-auto px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">全部保存</button>
-            <button onclick="window.location.href='index.html'" class="w-full sm:w-auto px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">返回主页</button>
+        <div class="text-center mt-6">
+            <button onclick="handleExit()" class="px-6 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-lg shadow-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-all duration-200">返回主页</button>
         </div>
     </div>
     <script src="js/edit.js"></script>

@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>下一节课查询</title>
+    <script>
+        // Anti-flicker script
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
     <!-- 添加Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -17,17 +23,19 @@
                             bg: '#e6f4ff',
                             text: '#333333',
                             card: '#ffffff',
-                            btn: '#4096ff',
+                            btn: '#4096ff', // Bright blue for light mode
                             btnHover: '#1677ff',
                             result: '#f6fbff'
                         },
                         dark: {
                             bg: '#121212',
-                            text: '#ffffff',
-                            card: '#1e1e1e',
-                            btn: '#003366',
+                            text: '#E0E0E0',
+                            card: '#1A1A1A',
+                            input: '#222222',
+                            btn: '#003366', // Deep Blue
                             btnHover: '#002244',
-                            result: '#1a1a1a'
+                            btnText: '#FFFFFF', // White Text
+                            result: '#1A1A1A'
                         }
                     },
                     scale: {
@@ -86,7 +94,7 @@
         
         <!-- 按钮容器，垂直排列 -->
         <div class="space-y-3">
-            <button onclick="processData()" class="w-full p-3 sm:p-4 bg-light-btn dark:bg-dark-btn hover:bg-light-btnHover dark:hover:bg-dark-btnHover text-white border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium flex justify-center items-center">
+            <button onclick="processData()" class="w-full p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium flex justify-center items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
                 </svg>
@@ -94,18 +102,18 @@
             </button>
             
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="window.location.href='edit.html'" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn hover:bg-light-btnHover dark:hover:bg-dark-btnHover text-white border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium">课程管理</button>
-                <button onclick="window.location.href='edit_time.html'" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn hover:bg-light-btnHover dark:hover:bg-dark-btnHover text-white border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium">时间管理</button>
+                <button onclick="window.location.href='edit.html'" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium">课程管理</button>
+                <button onclick="window.location.href='edit_time.html'" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium">时间管理</button>
             </div>
             
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="document.getElementById('import-file').click()" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn hover:bg-light-btnHover dark:hover:bg-dark-btnHover text-white border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium flex justify-center items-center">
+                <button onclick="document.getElementById('import-file').click()" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium flex justify-center items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
                     </svg>
                     导入本地数据
                 </button>
-                <button onclick="toggleDarkMode()" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn hover:bg-light-btnHover dark:hover:bg-dark-btnHover text-white border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium flex justify-center items-center" id="dark-mode-toggle">
+                <button onclick="toggleDarkMode()" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium flex justify-center items-center" id="dark-mode-toggle">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
                     </svg>
@@ -144,12 +152,11 @@
 
         // 页面加载时根据存储的主题设置模式
         document.addEventListener('DOMContentLoaded', function() {
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') {
-                document.documentElement.classList.add('dark');
+            // The anti-flicker script in <head> now handles the initial theme.
+            // We just need to set the correct scrollbar color and button text.
+            if (localStorage.getItem('theme') === 'dark') {
                 document.documentElement.style.setProperty('--scrollbar-color', '#003366');
             } else {
-                document.documentElement.classList.remove('dark'); // 确保移除不必要的类名
                 document.documentElement.style.setProperty('--scrollbar-color', '#4096ff');
             }
             updateModeButtonText(); // 初始化时更新按钮文本

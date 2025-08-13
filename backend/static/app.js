@@ -1,6 +1,15 @@
 // 防止重复点击并显示提示信息
 async function processData() {
     const button = document.querySelector('button[onclick="processData()"]');
+    
+    // 检查是否已有数据，并提示用户
+    const existingCourses = localStorage.getItem('courses');
+    if (existingCourses && JSON.parse(existingCourses).length > 0) {
+        if (!confirm("您已存有课程数据，此操作将覆盖所有已有数据，确定要继续吗？")) {
+            return; // 用户取消操作
+        }
+    }
+
     button.disabled = true; // 禁用按钮
     button.innerHTML = `
         <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

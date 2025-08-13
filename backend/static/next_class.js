@@ -1,12 +1,6 @@
 // 页面加载时自动执行
 document.addEventListener('DOMContentLoaded', function() {
-    // 设置暗色/亮色模式
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
+    // The anti-flicker script in the HTML head now handles the initial theme.
 
     // 显示下一节课和本周课程表
     displayNextClass();
@@ -46,7 +40,7 @@ async function getWeather() {
             const card = `
                 <div class="flex-shrink-0 w-28 text-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
                     <p class="text-sm font-medium">${displayTime}</p>
-                    <img src="https://icons.qweather.com/assets/icons/${hour.icon}.svg" alt="${hour.text}" class="w-10 h-10 mx-auto my-1">
+                    <img src="https://icons.qweather.com/assets/icons/${hour.icon}.svg" alt="${hour.text}" class="w-10 h-10 mx-auto my-1 weather-icon">
                     <p class="text-lg font-bold">${hour.temp}°C</p>
                     <p class="text-xs">${hour.text}</p>
                 </div>
@@ -212,10 +206,15 @@ function displayNextClass() {
         const resultDiv = document.getElementById('result');
 
         if (nextClass) {
-            const timeConfig = JSON.parse(localStorage.getItem('timeConfig'));
+            let timeConfig = JSON.parse(localStorage.getItem('timeConfig'));
+            if (!timeConfig || !timeConfig.time_slots) timeConfig = { time_slots: [] }; // Fallback
+
             const timeSlot = nextClass.time_slot.split('-').map(Number);
-            const startTime = timeConfig.time_slots[timeSlot[0] - 1].start;
-            const endTime = timeConfig.time_slots[timeSlot[1] - 1].end;
+            const startSlot = timeConfig.time_slots[timeSlot[0] - 1];
+            const endSlot = timeConfig.time_slots[timeSlot[1] - 1];
+
+            const startTime = startSlot ? startSlot.start : '未知';
+            const endTime = endSlot ? endSlot.end : '未知';
             const dayOfWeek = ['一', '二', '三', '四', '五', '六', '日'][nextClass.day - 1];
 
             let notice = '';
@@ -255,7 +254,9 @@ function generateWeeklySchedule() {
         const scheduleDiv = document.getElementById('weekly-schedule');
         scheduleDiv.innerHTML = `<h3 class="text-xl font-bold text-center mb-4">本周 (第 ${currentWeek} 周) 课程表</h3>`;
 
-        const timeConfig = JSON.parse(localStorage.getItem('timeConfig'));
+        let timeConfig = JSON.parse(localStorage.getItem('timeConfig'));
+        if (!timeConfig || !timeConfig.time_slots) timeConfig = { time_slots: [] }; // Fallback
+
         const days = ['一', '二', '三', '四', '五', '六', '日'];
         let weekHasClasses = false;
 
@@ -281,8 +282,12 @@ function generateWeeklySchedule() {
                                  <h4 class="font-bold text-lg mb-2">周${days[i-1]}</h4>`;
                 dayClasses.forEach(cls => {
                     const timeSlot = cls.time_slot.split('-').map(Number);
-                    const startTime = timeConfig.time_slots[timeSlot[0] - 1].start;
-                    const endTime = timeConfig.time_slots[timeSlot[1] - 1].end;
+                    const startSlot = timeConfig.time_slots[timeSlot[0] - 1];
+                    const endSlot = timeConfig.time_slots[timeSlot[1] - 1];
+                    
+                    const startTime = startSlot ? startSlot.start : '未知';
+                    const endTime = endSlot ? endSlot.end : '未知';
+
                     dayHtml += `<div class="ml-4 mb-2">
                                   <p><strong>${cls.courseName}</strong></p>
                                   <p class="text-sm text-gray-600 dark:text-gray-400">${startTime} - ${endTime} @ ${cls.building} ${cls.classroom}</p>
@@ -328,10 +333,40 @@ function parseWeeks(weeksStr) {
 
 // 将 "8:20" 格式的时间转换为分钟数
 function getTimeInMinutes(timeStr) {
-    const timeConfig = JSON.parse(localStorage.getItem('timeConfig'));
+    let timeConfig = JSON.parse(localStorage.getItem('timeConfig'));
+
+    // 如果 timeConfig 不存在，则创建并存储一个默认值
+    if (!timeConfig || !timeConfig.time_slots) {
+        console.warn("timeConfig not found in localStorage, using and storing default.");
+        timeConfig = {
+            config_id: "default",
+            time_slots: [
+                { section: 1, start: "08:20", end: "09:05" },
+                { section: 2, start: "09:10", end: "09:55" },
+                { section: 3, start: "10:10", end: "10:55" },
+                { section: 4, start: "11:00", end: "11:45" },
+                { section: 5, start: "13:45", end: "14:30" },
+                { section: 6, start: "14:35", end: "15:20" },
+                { section: 7, start: "15:35", end: "16:20" },
+                { section: 8, start: "16:25", end: "17:10" },
+                { section: 9, start: "18:30", end: "19:15" },
+                { section: 10, start: "19:25", end: "20:10" },
+                { section: 11, start: "20:20", end: "21:05" },
+                { section: 12, start: "21:15", end: "22:00" }
+            ]
+        };
+        localStorage.setItem('timeConfig', JSON.stringify(timeConfig));
+    }
+
     const section = parseInt(timeStr, 10);
-    const time = timeConfig.time_slots[section - 1].start;
-    const [hours, minutes] = time.split(':').map(Number);
+    const timeSlot = timeConfig.time_slots.find(slot => slot.section === section);
+    
+    if (!timeSlot) {
+        console.error(`Could not find time slot for section: ${section}`);
+        return 0; // 返回一个默认值以避免崩溃
+    }
+
+    const [hours, minutes] = timeSlot.start.split(':').map(Number);
     return hours * 60 + minutes;
 }
 

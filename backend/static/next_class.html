@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>下一节课</title>
+    <script>
+        // Anti-flicker script
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         // 配置Tailwind主题
@@ -17,14 +23,18 @@
                             text: '#333',
                             card: '#fff',
                             accent: '#4096ff',
-                            accentHover: '#1677ff'
+                            accentHover: '#1677ff',
+                            btn: '#4096ff',
+                            btnHover: '#1677ff'
                         },
                         dark: {
-                            bg: '#1f2937', // 深灰蓝背景
-                            text: '#d1d5db', // 浅灰色文字
-                            card: '#374151', // 卡片背景
-                            accent: '#60a5fa', // 亮蓝色强调色
-                            accentHover: '#3b82f6' // 更亮的蓝色
+                            bg: '#121212',
+                            text: '#E0E0E0',
+                            card: '#1A1A1A',
+                            accent: '#4096ff', // Blue accent for dark mode
+                            btn: '#003366', // Deep Blue
+                            btnHover: '#002244',
+                            btnText: '#FFFFFF' // White Text
                         }
                     }
                 }
@@ -45,6 +55,9 @@
         .dark .custom-scrollbar::-webkit-scrollbar-thumb {
             background-color: #4b5563;
         }
+        .dark .weather-icon {
+            filter: invert(1) brightness(2);
+        }
     </style>
 </head>
 <body class="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text font-sans min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-300">
@@ -63,7 +76,7 @@
             <!-- 本周课程表将在这里显示 -->
         </div>
         <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <button onclick="window.location.href='index.html'" class="w-full px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">
+            <button onclick="window.location.href='index.html'" class="w-full px-4 py-3 bg-light-btn dark:bg-dark-btn text-white hover:bg-light-btnHover dark:hover:bg-dark-btnHover font-semibold rounded-lg shadow-md transition-all duration-200">
                 设置界面
             </button>
             <button onclick="exportLocalStorage()" class="w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">

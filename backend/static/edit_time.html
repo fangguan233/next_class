@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>编辑时间段</title>
+    <script>
+        // Anti-flicker script
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -23,15 +29,17 @@
                             btnDangerHover: '#d9363e'
                         },
                         dark: {
-                            bg: '#1a1a1a',
-                            text: '#e0e0e0',
-                            card: '#2c2c2c',
-                            input: '#333',
-                            inputBorder: '#555',
+                            bg: '#121212',
+                            text: '#E0E0E0',
+                            card: '#1A1A1A',
+                            input: '#222222',
+                            inputBorder: '#3A3A3A',
                             btn: '#003366',
                             btnHover: '#002244',
-                            btnDanger: '#a61d24',
-                            btnDangerHover: '#800f19'
+                            btnText: '#FFFFFF',
+                            btnDanger: '#CF6679',
+                            btnDangerHover: '#E57373',
+                            accent: '#4096ff'
                         }
                     }
                 }
@@ -48,13 +56,22 @@
 <body class="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text font-sans min-h-screen flex flex-col items-center p-4 transition-colors duration-300">
     <div class="w-full max-w-2xl mx-auto bg-light-card dark:bg-dark-card rounded-2xl shadow-xl p-6 sm:p-8">
         <h1 class="text-2xl font-bold text-center mb-6">时间段管理</h1>
-        <div id="time-slots-container" class="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+
+        <div class="mb-6 p-4 bg-light-bg dark:bg-dark-bg rounded-lg">
+            <label class="block text-sm font-medium mb-2">选择预设模板</label>
+            <div class="flex flex-col sm:flex-row gap-2">
+                <button onclick="applyTemplate('default')" class="flex-1 px-4 py-2 text-sm bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-md transition-colors">默认模板 (8:20开课)</button>
+                <button onclick="applyTemplate('standard')" class="flex-1 px-4 py-2 text-sm bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-md transition-colors">标准模板 (8:00开课)</button>
+            </div>
+        </div>
+
+        <div id="time-slots-container" class="space-y-3 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
             <!-- 时间段将在这里动态加载 -->
         </div>
-        <div class="mt-6 flex flex-col sm:flex-row justify-center items-center gap-4">
-            <button onclick="addTimeSlot()" class="w-full sm:w-auto px-6 py-3 bg-light-btn dark:bg-dark-btn text-white font-semibold rounded-lg shadow-md hover:bg-light-btnHover dark:hover:bg-dark-btnHover transition-all duration-200">添加时间段</button>
-            <button onclick="saveTimeSlots()" class="w-full sm:w-auto px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">全部保存</button>
-            <button onclick="window.location.href='index.html'" class="w-full sm:w-auto px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">返回主页</button>
+        <div class="mt-6 flex flex-col sm:flex-row justify-center items-center gap-3">
+            <button onclick="addTimeSlot()" class="w-full sm:w-auto px-4 py-2 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text font-semibold rounded-lg shadow-md hover:bg-light-btnHover dark:hover:bg-dark-btnHover transition-all duration-200 text-sm">添加时间段</button>
+            <button onclick="saveTimeSlots()" class="w-full sm:w-auto px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200 text-sm">全部保存</button>
+            <button onclick="window.location.href='index.html'" class="w-full sm:w-auto px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200 text-sm">返回主页</button>
         </div>
     </div>
     <script src="js/edit_time.js"></script>

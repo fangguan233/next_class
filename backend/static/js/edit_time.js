@@ -1,11 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // 设置暗色/亮色模式
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
+    // The anti-flicker script in the HTML head now handles the initial theme.
     loadTimeSlots();
 });
 
@@ -22,22 +16,31 @@ function loadTimeSlots() {
 
 function createTimeSlotElement(slot, index) {
     const div = document.createElement('div');
-    div.className = 'time-slot-item flex items-center gap-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg';
+    // Reduce padding to p-2
+    div.className = 'time-slot-item flex items-center gap-2 p-2 bg-light-card dark:bg-dark-card rounded-lg shadow-sm';
     div.dataset.index = index;
 
     div.innerHTML = `
-        <span class="font-bold w-12 text-center">第 ${slot.section} 节</span>
-        <div class="flex-grow grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium">开始时间</label>
-                <input type="time" value="${slot.start}" data-field="start" class="w-full p-2 rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder">
+        <!-- Reduce width, font-size, and letter-spacing -->
+        <div class="flex-shrink-0 w-16 flex items-center justify-center">
+            <span class="font-semibold text-base text-light-accent dark:text-dark-accent whitespace-nowrap tracking-tight">第 ${slot.section} 节</span>
+        </div>
+
+        <div class="flex-grow flex items-center gap-2">
+            <div class="flex-1 min-w-0">
+                <label class="block text-xs font-medium text-gray-500 mb-1">开始时间</label>
+                <input type="time" value="${slot.start}" data-field="start" class="w-full p-1.5 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder">
             </div>
-            <div>
-                <label class="block text-sm font-medium">结束时间</label>
-                <input type="time" value="${slot.end}" data-field="end" class="w-full p-2 rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder">
+            <div class="flex-1 min-w-0">
+                <label class="block text-xs font-medium text-gray-500 mb-1">结束时间</label>
+                <input type="time" value="${slot.end}" data-field="end" class="w-full p-1.5 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder">
             </div>
         </div>
-        <button onclick="deleteTimeSlot(${index})" class="ml-4 px-3 py-2 bg-light-btnDanger dark:bg-dark-btnDanger hover:bg-light-btnDangerHover dark:hover:bg-dark-btnDangerHover text-white rounded-md text-sm">删除</button>
+        
+        <!-- Reduce padding -->
+        <button onclick="deleteTimeSlot(${index})" class="flex-shrink-0 px-3 py-2 bg-light-btnDanger dark:bg-dark-btnDanger hover:bg-light-btnDangerHover dark:hover:bg-dark-btnDangerHover text-white rounded-md font-semibold text-sm">
+            删除
+        </button>
     `;
     return div;
 }
@@ -105,4 +108,53 @@ function getTimeConfigFromStorage() {
 function updateAndReload(timeConfig) {
     localStorage.setItem('timeConfig', JSON.stringify(timeConfig));
     loadTimeSlots();
+}
+
+const TIME_TEMPLATES = {
+    'default': {
+        config_id: "default_820",
+        time_slots: [
+            { section: 1, start: "08:20", end: "09:05" },
+            { section: 2, start: "09:10", end: "09:55" },
+            { section: 3, start: "10:10", end: "10:55" },
+            { section: 4, start: "11:00", end: "11:45" },
+            { section: 5, start: "13:45", end: "14:30" },
+            { section: 6, start: "14:35", end: "15:20" },
+            { section: 7, start: "15:35", end: "16:20" },
+            { section: 8, start: "16:25", end: "17:10" },
+            { section: 9, start: "18:30", end: "19:15" },
+            { section: 10, start: "19:25", end: "20:10" },
+            { section: 11, start: "20:20", end: "21:05" },
+            { section: 12, start: "21:15", end: "22:00" }
+        ]
+    },
+    'standard': {
+        config_id: "standard_800",
+        time_slots: [
+            { section: 1, start: "08:00", end: "08:45" },
+            { section: 2, start: "08:55", end: "09:40" },
+            { section: 3, start: "10:00", end: "10:45" },
+            { section: 4, start: "10:55", end: "11:40" },
+            { section: 5, start: "14:00", end: "14:45" },
+            { section: 6, start: "14:55", end: "15:40" },
+            { section: 7, start: "16:00", end: "16:45" },
+            { section: 8, start: "16:55", end: "17:40" },
+            { section: 9, start: "19:00", end: "19:45" },
+            { section: 10, start: "19:55", end: "20:40" },
+            { section: 11, start: "20:50", end: "21:35" }
+        ]
+    }
+};
+
+function applyTemplate(templateName) {
+    if (!TIME_TEMPLATES[templateName]) {
+        alert("未找到指定的模板！");
+        return;
+    }
+
+    if (confirm("应用新模板将覆盖当前所有时间段设置，确定要继续吗？")) {
+        const newTimeConfig = TIME_TEMPLATES[templateName];
+        updateAndReload(newTimeConfig);
+        alert("模板已成功应用！");
+    }
 }
