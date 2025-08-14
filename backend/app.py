@@ -1,14 +1,29 @@
 import os
 import json
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Blueprint
 from dotenv import load_dotenv
 from openai import OpenAI
+import random
+import string
+import time
+import glob
+from apscheduler.schedulers.background import BackgroundScheduler
+from werkzeug.utils import secure_filename
 
 # 加载 .env 文件中的环境变量
 load_dotenv()
 
-# 配置Flask以提供静态文件
+# 配置
 app = Flask(__name__, static_folder='static')
+share_bp = Blueprint('share', __name__, url_prefix='/api/share')
+SHARE_CONFIG_DIR = os.path.join(os.path.dirname(__file__), 'shared_configs')
+SHARE_CONFIG_EXPIRATION_HOURS = int(os.getenv('SHARE_CONFIG_EXPIRATION_HOURS', 24))
+SHARE_RATE_LIMIT_SECONDS = int(os.getenv('SHARE_RATE_LIMIT_SECONDS', 60))
+
+os.makedirs(SHARE_CONFIG_DIR, exist_ok=True)
+
+# 用于存储每个IP的最后分享时间
+share_timestamps = {}
 
 # 初始化 OpenAI 客户端
 client = OpenAI(
@@ -132,7 +147,92 @@ def index():
 def serve_static(path):
     return send_from_directory(app.static_folder, path)
 
+# --- 分享功能 ---
+
+def generate_share_code():
+    """生成一个唯一的6位数字分享码。"""
+    while True:
+        code = ''.join(random.choices(string.digits, k=6))
+        # 检查是否有同名文件（忽略时间戳）
+        if not glob.glob(os.path.join(SHARE_CONFIG_DIR, f"{code}_*.json")):
+            return code
+
+@share_bp.route('/generate-code', methods=['POST'])
+def get_share_code():
+    """生成并返回一个新的分享码。"""
+    share_code = generate_share_code()
+    return jsonify({"success": True, "share_code": share_code})
+
+@share_bp.route('/upload', methods=['POST'])
+def upload_share_file():
+    """上传分享文件。"""
+    # 速率限制
+    ip_address = request.remote_addr
+    last_share_time = share_timestamps.get(ip_address, 0)
+    current_time = time.time()
+
+    if current_time - last_share_time < SHARE_RATE_LIMIT_SECONDS:
+        remaining_time = int(SHARE_RATE_LIMIT_SECONDS - (current_time - last_share_time))
+        return jsonify({"success": False, "message": f"操作过于频繁，请在 {remaining_time} 秒后重试。"}), 429
+
+    if 'file' not in request.files:
+        return jsonify({"success": False, "message": "没有文件部分"}), 400
+    file = request.files['file']
+    share_code = request.form.get('share_code')
+
+    if file.filename == '' or not share_code:
+        return jsonify({"success": False, "message": "没有选择文件或缺少分享码"}), 400
+
+    if file and share_code:
+        # 更新分享时间戳
+        share_timestamps[ip_address] = current_time
+        
+        # 使用时间戳命名文件
+        timestamp = int(time.time())
+        filename = f"{share_code}_{timestamp}.json"
+        file.save(os.path.join(SHARE_CONFIG_DIR, filename))
+        return jsonify({"success": True, "message": "文件上传成功"})
+
+@share_bp.route('/get/<code>', methods=['GET'])
+def get_share_file(code):
+    """根据分享码下载文件。"""
+    files = glob.glob(os.path.join(SHARE_CONFIG_DIR, f"{code}_*.json"))
+    if not files:
+        return jsonify({"success": False, "message": "分享码不存在或已过期"}), 404
+    
+    # 返回最新的文件
+    latest_file = max(files, key=os.path.getctime)
+    return send_from_directory(SHARE_CONFIG_DIR, os.path.basename(latest_file))
+
+# --- 文件清理任务 ---
+
+def cleanup_expired_files():
+    """清理过期的分享文件。"""
+    if SHARE_CONFIG_EXPIRATION_HOURS == 0:
+        return # 0表示永不过期
+
+    now = time.time()
+    expiration_seconds = SHARE_CONFIG_EXPIRATION_HOURS * 3600
+    
+    for filename in os.listdir(SHARE_CONFIG_DIR):
+        if '_' in filename and filename.endswith('.json'):
+            try:
+                timestamp = int(filename.split('_')[1].split('.')[0])
+                if (now - timestamp) > expiration_seconds:
+                    os.remove(os.path.join(SHARE_CONFIG_DIR, filename))
+                    print(f"删除了过期的分享文件: {filename}")
+            except (ValueError, IndexError):
+                continue # 文件名格式不正确，跳过
+
+app.register_blueprint(share_bp)
+
+
 if __name__ == '__main__':
+    # 启动后台清理任务
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(func=cleanup_expired_files, trigger="interval", hours=1)
+    scheduler.start()
+
     # 从环境变量中获取端口，如果未设置则默认为 5000
     port = int(os.environ.get('FLASK_RUN_PORT', 5000))
     app.run(debug=True, host='0.0.0.0', port=port)

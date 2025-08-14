@@ -79,9 +79,66 @@
         .dark .focus-ring:focus {
             box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.5);
         }
+
+        /* 弹窗样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 90%;
+            width: 400px;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+        .dark .modal-content {
+            background: #1A1A1A;
+        }
+        .modal-overlay.visible .modal-content {
+            transform: scale(1);
+        }
+
+        /* Toast 样式 */
+        #toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        #toast.show {
+            opacity: 1;
+            transform: translate(-50%, -10px);
+        }
     </style>
 </head>
 <body class="bg-light-bg dark:bg-dark-bg font-sans m-0 p-4 text-light-text dark:text-dark-text transition-colors duration-300 min-h-screen flex flex-col justify-center items-center">
+    <div id="toast"></div>
     <div class="w-full max-w-md mx-auto p-6 sm:p-8 bg-light-card dark:bg-dark-card rounded-xl shadow-lg transition-all duration-300">
         <h1 class="text-xl sm:text-2xl font-bold text-light-text dark:text-dark-text mb-6 text-center">课程设置</h1>
         
@@ -107,17 +164,25 @@
             </div>
             
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="document.getElementById('import-file').click()" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium flex justify-center items-center">
+                <button onclick="importWithShareCode()" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium flex justify-center items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
                     </svg>
-                    导入本地数据
+                    通过分享码导入
                 </button>
                 <button onclick="toggleDarkMode()" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium flex justify-center items-center" id="dark-mode-toggle">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
                     </svg>
                     切换模式
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="shareSchedule()" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium">
+                    分享课程表
+                </button>
+                <button onclick="clearLocalStorage()" class="p-3 sm:p-4 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">
+                    清除本地数据
                 </button>
             </div>
              <button onclick="goToNextClass()" class="w-full p-3 sm:p-4 bg-green-500 hover:bg-green-600 text-white border-none rounded-lg cursor-pointer transition-all duration-200 hover:scale-102 hover:shadow-md text-sm sm:text-base font-medium flex justify-center items-center">
@@ -136,6 +201,15 @@
         
         <!-- 本周课程表 -->
         <div id="weekly-schedule" class="mt-6 p-5 bg-light-result dark:bg-dark-result border border-light-bg dark:border-gray-700 rounded-lg text-light-text dark:text-dark-text text-sm sm:text-base custom-scrollbar max-h-[300px] overflow-auto hidden"></div>
+    </div>
+
+    <!-- 弹窗 -->
+    <div id="shareModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="modalTitle" class="text-xl font-bold mb-4"></h2>
+            <div id="modalBody"></div>
+            <div id="modalActions" class="mt-6 flex justify-end gap-3"></div>
+        </div>
     </div>
     
     <script>

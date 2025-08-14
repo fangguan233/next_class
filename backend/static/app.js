@@ -411,76 +411,6 @@ function generateWeeklySchedule() {
     }
 }
 
-// 新增：导入本地存储功能
-function importLocalStorage() {
-    const fileInput = document.getElementById('import-file');
-    const resultDiv = document.getElementById('result');
-
-    if (!fileInput.files.length) {
-        alert('请选择一个有效的 .json 文件');
-        return;
-    }
-
-    const file = fileInput.files[0];
-    const reader = new FileReader();
-
-    reader.onload = function (event) {
-        try {
-            const content = event.target.result;
-            const data = JSON.parse(content);
-
-            // 验证数据格式，允许部分字段缺失
-            if (!data.courses || !Array.isArray(data.courses)) {
-                throw new Error("导入的数据中缺少有效的 'courses' 字段");
-            }
-            if (!data.startDate || typeof data.startDate !== 'string') {
-                throw new Error("导入的数据中缺少有效的 'startDate' 字段");
-            }
-
-            // 如果 timeConfig 缺失，使用默认值
-            const defaultTimeConfig = {
-                config_id: "default",
-                time_slots: [
-                    { section: 1, start: "08:20", end: "09:05" },
-                    { section: 2, start: "09:10", end: "09:55" },
-                    { section: 3, start: "10:10", end: "10:55" },
-                    { section: 4, start: "11:00", end: "11:45" },
-                    { section: 5, start: "13:45", end: "14:30" },
-                    { section: 6, start: "14:35", end: "15:20" },
-                    { section: 7, start: "15:35", end: "16:20" },
-                    { section: 8, start: "16:25", end: "17:10" },
-                    { section: 9, start: "18:30", end: "19:15" },
-                    { section: 10, start: "19:25", end: "20:10" },
-                    { section: 11, start: "20:20", end: "21:05" },
-                    { section: 12, start: "21:15", end: "22:00" }
-                ]
-            };
-            const timeConfig = data.timeConfig && typeof data.timeConfig === 'object' 
-                ? data.timeConfig 
-                : defaultTimeConfig;
-
-            // 存储到本地存储
-            localStorage.setItem('courses', JSON.stringify(data.courses));
-            localStorage.setItem('startDate', data.startDate);
-            localStorage.setItem('timeConfig', JSON.stringify(timeConfig));
-
-            alert('本地数据已成功导入');
-            window.location.href = '/next_class.html'; // 直接跳转到结果页面
-        } catch (error) {
-            console.error("导入本地数据失败：", error.message);
-            resultDiv.innerHTML = `<p style="color: red">错误：${error.message}</p>`;
-        }
-    };
-
-    reader.onerror = function () {
-        resultDiv.innerHTML = `<p style="color: red">错误：文件读取失败</p>`;
-    };
-
-    reader.readAsText(file);
-}
-
-// 绑定文件输入框的 change 事件
-document.getElementById('import-file').addEventListener('change', importLocalStorage);
 
 // 新增：跳转到课程界面
 function goToNextClass() {
@@ -490,4 +420,222 @@ function goToNextClass() {
     } else {
         alert('没有课程数据，请先导入数据。');
     }
+}
+
+// 新增：删除本地存储功能
+function clearLocalStorage() {
+    if (confirm("确定要清除所有本地课程数据吗？此操作不可逆。")) {
+        localStorage.removeItem('courses');
+        localStorage.removeItem('startDate');
+        localStorage.removeItem('timeConfig');
+        alert('本地存储已清除');
+        window.location.reload(); // 重新加载页面以更新状态
+    }
+}
+
+// --- 弹窗控制 ---
+const modal = document.getElementById('shareModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalBody = document.getElementById('modalBody');
+const modalActions = document.getElementById('modalActions');
+
+function showModal(title, body, actions) {
+    modalTitle.textContent = title;
+    modalBody.innerHTML = body;
+    modalActions.innerHTML = '';
+    actions.forEach(action => {
+        const button = document.createElement('button');
+        button.textContent = action.text;
+        // 修复暗色模式UI Bug
+        let baseClass = "px-4 py-2 rounded transition-all duration-200";
+        if (action.type === 'primary') {
+            button.className = `${baseClass} bg-light-btn dark:bg-blue-700 text-white dark:hover:bg-blue-600`;
+        } else {
+            button.className = `${baseClass} bg-gray-300 dark:bg-gray-600 dark:text-gray-200 text-gray-800 dark:hover:bg-gray-500`;
+        }
+        button.onclick = action.handler;
+        modalActions.appendChild(button);
+    });
+    modal.classList.add('visible');
+}
+
+function hideModal() {
+    modal.classList.remove('visible');
+}
+
+// 新增：分享课程表功能
+async function shareSchedule() {
+    const storedCourses = localStorage.getItem('courses');
+    const storedStartDate = localStorage.getItem('startDate');
+    const storedTimeConfig = localStorage.getItem('timeConfig');
+
+    if (!storedCourses || !storedStartDate) {
+        showModal('分享失败', '<p>没有可分享的本地数据。</p>', [
+            { text: '关闭', class: 'px-4 py-2 bg-gray-300 rounded', handler: hideModal }
+        ]);
+        return;
+    }
+
+    try {
+        // 1. 请求分享码
+        const codeResponse = await fetch('/api/share/generate-code', { method: 'POST' });
+        if (!codeResponse.ok) throw new Error('获取分享码失败');
+        const { share_code } = await codeResponse.json();
+
+        // 2. 准备上传数据
+        const data = {
+            courses: JSON.parse(storedCourses),
+            startDate: storedStartDate,
+            timeConfig: JSON.parse(storedTimeConfig)
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const formData = new FormData();
+        formData.append('file', blob, `${share_code}.json`);
+        formData.append('share_code', share_code);
+
+        // 3. 上传文件
+        const uploadResponse = await fetch('/api/share/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!uploadResponse.ok) {
+            // 检查是否是速率限制错误
+            if (uploadResponse.status === 429) {
+                const errorData = await uploadResponse.json();
+                throw new Error(errorData.message || '操作过于频繁，请稍后重试。');
+            }
+            throw new Error('上传分享文件失败');
+        }
+
+        // 4. 显示成功信息
+        showModal('分享成功', `
+            <p>您的分享码是：</p>
+            <p class="text-3xl font-bold my-4">${share_code}</p>
+            <p class="text-sm text-gray-500">（分享码有效期24小时）</p>
+        `, [
+            { text: '复制', type: 'primary', handler: () => copyToClipboard(share_code) },
+            { text: '关闭', type: 'secondary', handler: hideModal }
+        ]);
+
+    } catch (error) {
+        console.error("分享失败：", error.message);
+        showModal('分享失败', `<p>${error.message}</p>`, [
+            { text: '关闭', class: 'px-4 py-2 bg-gray-300 rounded', handler: hideModal }
+        ]);
+    }
+}
+
+// 新增：通过分享码导入功能
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 2000); // 2秒后自动消失
+}
+
+function copyToClipboard(text) {
+    // 优先使用 Clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('已复制到剪贴板');
+        }).catch(err => {
+            console.error('使用 Clipboard API 复制失败:', err);
+            fallbackCopyTextToClipboard(text);
+        });
+    } else {
+        // 回退到 document.execCommand
+        fallbackCopyTextToClipboard(text);
+    }
+}
+
+function fallbackCopyTextToClipboard(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    
+    // 避免在屏幕上闪烁
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.width = "2em";
+    textArea.style.height = "2em";
+    textArea.style.padding = "0";
+    textArea.style.border = "none";
+    textArea.style.outline = "none";
+    textArea.style.boxShadow = "none";
+    textArea.style.background = "transparent";
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            showToast('已复制到剪贴板');
+        } else {
+            showToast('复制失败，请手动复制');
+        }
+    } catch (err) {
+        console.error('使用 execCommand 复制失败:', err);
+        showToast('复制失败，请手动复制');
+    }
+
+    document.body.removeChild(textArea);
+}
+
+// 新增：通过分享码导入功能
+function importWithShareCode() {
+    showModal('通过分享码导入', `
+        <input type="text" id="shareCodeInput" class="w-full p-2 border rounded bg-white dark:bg-gray-800 dark:text-gray-200" placeholder="请输入6位分享码" maxlength="6">
+    `, [
+        { text: '导入', type: 'primary', handler: async () => {
+            // 添加覆盖警告
+            const existingCourses = localStorage.getItem('courses');
+            if (existingCourses && JSON.parse(existingCourses).length > 0) {
+                if (!confirm("此操作将覆盖您当前的课程表，确定要继续吗？")) {
+                    return; // 用户取消操作
+                }
+            }
+
+            const shareCode = document.getElementById('shareCodeInput').value;
+            if (!shareCode || !/^\d{6}$/.test(shareCode)) {
+                showToast("请输入有效的6位数字分享码。");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/share/get/${shareCode}`);
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error("分享码不存在或已过期。");
+                    }
+                    throw new Error(`服务器错误 (HTTP ${response.status})`);
+                }
+
+                const data = await response.json();
+
+                if (!data.courses || !data.startDate) {
+                    throw new Error("分享的数据格式不正确。");
+                }
+
+                localStorage.setItem('courses', JSON.stringify(data.courses));
+                localStorage.setItem('startDate', data.startDate);
+                if (data.timeConfig) {
+                    localStorage.setItem('timeConfig', JSON.stringify(data.timeConfig));
+                }
+
+                hideModal();
+                showToast("导入成功！");
+                window.location.href = 'next_class.html';
+
+            } catch (error) {
+                console.error("通过分享码导入失败：", error.message);
+                showToast(`导入失败：${error.message}`);
+            }
+        }},
+        { text: '取消', type: 'secondary', handler: hideModal }
+    ]);
 }
