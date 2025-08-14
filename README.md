@@ -1,4 +1,4 @@
-# 智能课程表 v1.1.2
+# NEXT_CLASS v1.1.2
 
 ## v1.1.2 更新日志 (2025-08-14)
 
@@ -64,4 +64,5 @@ sh start_server.sh
 sh stop.sh
 ```
 该脚本会自动读取 `backend/server.pid` 文件，并终止对应的服务进程，然后删除PID文件。
+
 
