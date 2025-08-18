@@ -4,8 +4,28 @@ let suggestionData = { teachers: new Set(), campus: new Set(), building: new Set
 
 document.addEventListener('DOMContentLoaded', function() {
     // --- Basic Setup ---
-    // The anti-flicker script in the HTML head now handles the initial theme.
     loadCoursesAndSettings();
+
+    // --- Show Conflict Warning on Load ---
+    const conflictWarning = sessionStorage.getItem('conflict_warning');
+    if (conflictWarning) {
+        // 使用 setTimeout 确保在页面渲染后弹出，体验更好
+        setTimeout(() => {
+            alert(conflictWarning);
+            sessionStorage.removeItem('conflict_warning'); // 显示后立即移除
+        }, 100);
+    }
+
+    // --- Event Listeners for Core Actions ---
+    const addBtn = document.getElementById('add-course-btn');
+    if (addBtn) {
+        addBtn.addEventListener('click', addCourse);
+    }
+
+    const saveBtn = document.getElementById('save-changes-btn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveAllChanges);
+    }
 
     // --- Event Listeners for Safety and UI ---
     window.addEventListener('beforeunload', e => {
@@ -43,10 +63,6 @@ function collectSuggestionData() {
 }
 
 function loadCoursesAndSettings() {
-    const startDateInput = document.getElementById('start-date');
-    const storedStartDate = localStorage.getItem('startDate');
-    if (storedStartDate) startDateInput.value = storedStartDate.split('T')[0];
-
     const storedCourses = localStorage.getItem('courses');
     coursesInMemory = storedCourses ? JSON.parse(storedCourses) : [];
 
@@ -71,7 +87,7 @@ function renderUIFromMemory() {
 
 function createCourseElement(course, index) {
     const courseWrapper = document.createElement('div');
-    courseWrapper.className = 'course-item bg-light-bg dark:bg-dark-bg rounded-lg shadow-sm overflow-hidden';
+    courseWrapper.className = 'course-item bg-light-bg dark:bg-dark-bg rounded-lg shadow-sm overflow-hidden transition-shadow duration-200 hover:shadow-lg';
     courseWrapper.dataset.courseIndex = index;
 
     const schedulesHtml = course.schedules.map((schedule, sIndex) => createScheduleElement(schedule, index, sIndex)).join('');
@@ -87,9 +103,9 @@ function createCourseElement(course, index) {
         </div>
         <div class="course-body"><div class="p-4 border-t border-gray-200 dark:border-gray-700">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div><label class="block text-sm font-medium">课程代码</label><input type="text" value="${course.code}" oninput="updateCourseField(${index}, 'code', this.value)" class="w-full p-2 mt-1 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder"></div>
-                <div><label class="block text-sm font-medium">课程名称</label><input type="text" value="${course.name}" oninput="updateCourseField(${index}, 'name', this.value)" class="w-full p-2 mt-1 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder"></div>
-                <div class="md:col-span-2 autocomplete relative"><label class="block text-sm font-medium">教师 (多个用逗号隔开)</label><input type="text" value="${course.teachers.join(', ')}" oninput="updateCourseField(${index}, 'teachers', this.value.split(',').map(t=>t.trim())); initAutocomplete(this, Array.from(suggestionData.teachers))" onfocus="initAutocomplete(this, Array.from(suggestionData.teachers))" class="w-full p-2 mt-1 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder"></div>
+                <div><label class="block text-sm font-medium">课程代码</label><input type="text" value="${course.code}" oninput="updateCourseField(${index}, 'code', this.value)" class="w-full p-2 mt-1 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent"></div>
+                <div><label class="block text-sm font-medium">课程名称</label><input type="text" value="${course.name}" oninput="updateCourseField(${index}, 'name', this.value)" class="w-full p-2 mt-1 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent"></div>
+                <div class="md:col-span-2 autocomplete relative"><label class="block text-sm font-medium">教师 (多个用逗号隔开)</label><input type="text" value="${course.teachers.join(', ')}" oninput="updateCourseField(${index}, 'teachers', this.value.split(',').map(t=>t.trim())); initAutocomplete(this, Array.from(suggestionData.teachers))" onfocus="initAutocomplete(this, Array.from(suggestionData.teachers))" class="w-full p-2 mt-1 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent"></div>
             </div>
             <h3 class="text-md font-semibold mb-2">上课安排</h3><div class="schedules-container space-y-3">${schedulesHtml}</div>
             <div class="mt-4 flex justify-end gap-2">
@@ -118,17 +134,17 @@ function createScheduleElement(schedule, courseIndex, scheduleIndex) {
     return `
         <div class="schedule-item p-3 bg-gray-100 dark:bg-gray-800 rounded-md" data-schedule-index="${scheduleIndex}">
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div><label class="text-xs font-medium">周数</label><input type="text" value="${schedule.weeks}" oninput="updateScheduleField(${courseIndex}, ${scheduleIndex}, 'weeks', this.value)" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder"></div>
-                <div><label class="text-xs font-medium">星期</label><select onchange="updateScheduleField(${courseIndex}, ${scheduleIndex}, 'day', this.value)" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder">${dayOptions}</select></div>
+                <div><label class="text-xs font-medium">周数</label><input type="text" value="${schedule.weeks}" oninput="updateScheduleField(${courseIndex}, ${scheduleIndex}, 'weeks', this.value)" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent"></div>
+                <div><label class="text-xs font-medium">星期</label><select onchange="updateScheduleField(${courseIndex}, ${scheduleIndex}, 'day', this.value)" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent">${dayOptions}</select></div>
                 <div class="grid grid-cols-2 gap-1">
-                    <div><label class="text-xs font-medium">开始</label><select onchange="handleStartSectionChange(this, ${courseIndex}, ${scheduleIndex})" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder">${startSlotOptions}</select></div>
-                    <div><label class="text-xs font-medium">结束</label><select onchange="updateScheduleTimeSlot(${courseIndex}, ${scheduleIndex})" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder">${endSlotOptions}</select></div>
+                    <div><label class="text-xs font-medium">开始</label><select onchange="handleStartSectionChange(this, ${courseIndex}, ${scheduleIndex})" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent">${startSlotOptions}</select></div>
+                    <div><label class="text-xs font-medium">结束</label><select onchange="updateScheduleTimeSlot(${courseIndex}, ${scheduleIndex})" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent">${endSlotOptions}</select></div>
                 </div>
-                <div class="autocomplete relative"><label class="text-xs font-medium">校区</label><input type="text" value="${schedule.campus}" oninput="updateScheduleField(${courseIndex}, ${scheduleIndex}, 'campus', this.value); initAutocomplete(this, Array.from(suggestionData.campus))" onfocus="initAutocomplete(this, Array.from(suggestionData.campus))" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder"></div>
-                <div class="autocomplete relative"><label class="text-xs font-medium">教学楼</label><input type="text" value="${schedule.building}" oninput="updateScheduleField(${courseIndex}, ${scheduleIndex}, 'building', this.value); initAutocomplete(this, Array.from(suggestionData.building))" onfocus="initAutocomplete(this, Array.from(suggestionData.building))" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder"></div>
-                <div class="autocomplete relative"><label class="text-xs font-medium">教室</label><input type="text" value="${schedule.classroom}" oninput="updateScheduleField(${courseIndex}, ${scheduleIndex}, 'classroom', this.value); initAutocomplete(this, Array.from(suggestionData.classroom))" onfocus="initAutocomplete(this, Array.from(suggestionData.classroom))" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder"></div>
+                <div class="autocomplete relative"><label class="text-xs font-medium">校区</label><input type="text" value="${schedule.campus}" oninput="updateScheduleField(${courseIndex}, ${scheduleIndex}, 'campus', this.value); initAutocomplete(this, Array.from(suggestionData.campus))" onfocus="initAutocomplete(this, Array.from(suggestionData.campus))" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent"></div>
+                <div class="autocomplete relative"><label class="text-xs font-medium">教学楼</label><input type="text" value="${schedule.building}" oninput="updateScheduleField(${courseIndex}, ${scheduleIndex}, 'building', this.value); initAutocomplete(this, Array.from(suggestionData.building))" onfocus="initAutocomplete(this, Array.from(suggestionData.building))" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent"></div>
+                <div class="autocomplete relative"><label class="text-xs font-medium">教室</label><input type="text" value="${schedule.classroom}" oninput="updateScheduleField(${courseIndex}, ${scheduleIndex}, 'classroom', this.value); initAutocomplete(this, Array.from(suggestionData.classroom))" onfocus="initAutocomplete(this, Array.from(suggestionData.classroom))" class="w-full p-1.5 mt-1 text-xs rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent"></div>
             </div>
-            <div class="mt-3 text-right"><button onclick="deleteSchedule(${courseIndex}, ${scheduleIndex})" class="px-2 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded">删除此安排</button></div>
+            <div class="mt-3 text-right"><button onclick="deleteSchedule(${courseIndex}, ${scheduleIndex})" class="px-2 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95">删除此安排</button></div>
         </div>`;
 }
 
@@ -251,20 +267,47 @@ function detectConflicts(courses) {
 }
 
 function saveAllChanges() {
-    const startDateInput = document.getElementById('start-date');
-    const startDate = new Date(startDateInput.value);
-    if (isNaN(startDate.getTime())) { alert('请输入一个有效的开学日期！'); return }
-    if (startDate.getDay() !== 1) { alert('错误：请选择周一作为开学第一天。'); return }
-    localStorage.setItem('startDate', startDate.toISOString());
+    // 检查 localStorage 中是否存在开学日期，如果不存在则提示
+    const storedStartDate = localStorage.getItem('startDate');
+    if (!storedStartDate) {
+        alert('错误：未设置开学日期。请返回主页设置。');
+        return;
+    }
+
+    // 冲突检测
     const conflictResult = detectConflicts(coursesInMemory);
-    if (conflictResult.c) { alert(conflictResult.m); return }
-    let timeConfig = JSON.parse(localStorage.getItem('timeConfig'));
-    if (!timeConfig || !timeConfig.time_slots) timeConfig = { time_slots: Array.from({ length: 12 }, (_, i) => ({ section: i + 1 })) };
+    if (conflictResult.c) {
+        alert(conflictResult.m);
+        return;
+    }
+
+    // 节次检查
+    let timeConfig;
+    try {
+        timeConfig = JSON.parse(localStorage.getItem('timeConfig'));
+        if (!timeConfig || !timeConfig.time_slots) {
+            throw new Error("Invalid time config");
+        }
+    } catch (e) {
+        // 如果时间配置不存在或无效，创建一个默认的
+        timeConfig = { time_slots: Array.from({ length: 12 }, (_, i) => ({ section: i + 1 })) };
+    }
     const maxSection = timeConfig.time_slots.length;
-    for (const c of coursesInMemory) { for (const s of c.schedules) { const sl = s.time_slot.split('-').map(Number); if (sl.length === 2 && !isNaN(sl[1]) && sl[1] > maxSection) { alert(`错误：课程'${c.name}'的节数(${s.time_slot})超出了时间表定义的最大节数(${maxSection})。`); return } } }
+
+    for (const course of coursesInMemory) {
+        for (const schedule of course.schedules) {
+            const timeParts = schedule.time_slot.split('-').map(Number);
+            if (timeParts.length === 2 && !isNaN(timeParts[1]) && timeParts[1] > maxSection) {
+                alert(`错误：课程 '${course.name}' 的节数 (${schedule.time_slot}) 超出了时间表定义的最大节数 (${maxSection})。请先在“时间管理”中调整或修正课程节次。`);
+                return;
+            }
+        }
+    }
+
+    // 保存到 localStorage
     localStorage.setItem('courses', JSON.stringify(coursesInMemory));
     setUnsavedChanges(false);
-    collectSuggestionData();
+    collectSuggestionData(); // 更新自动补全数据
     alert('所有更改已成功保存！');
 }
 

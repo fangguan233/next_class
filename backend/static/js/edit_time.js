@@ -1,6 +1,27 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // The anti-flicker script in the HTML head now handles the initial theme.
+    // Load initial data
     loadTimeSlots();
+
+    // Bind events to buttons
+    const addBtn = document.getElementById('add-slot-btn');
+    if (addBtn) {
+        addBtn.addEventListener('click', addTimeSlot);
+    }
+const saveBtn = document.getElementById('save-btn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveTimeSlots);
+    }
+
+    // Bind template buttons
+    const defaultTemplateBtn = document.getElementById('template-default');
+    if (defaultTemplateBtn) {
+        defaultTemplateBtn.addEventListener('click', () => applyTemplate('default'));
+    }
+
+    const standardTemplateBtn = document.getElementById('template-standard');
+    if (standardTemplateBtn) {
+        standardTemplateBtn.addEventListener('click', () => applyTemplate('standard'));
+    }
 });
 
 function loadTimeSlots() {
@@ -17,7 +38,7 @@ function loadTimeSlots() {
 function createTimeSlotElement(slot, index) {
     const div = document.createElement('div');
     // Reduce padding to p-2
-    div.className = 'time-slot-item flex items-center gap-2 p-2 bg-light-card dark:bg-dark-card rounded-lg shadow-sm';
+    div.className = 'time-slot-item flex items-center gap-2 p-2 bg-light-card dark:bg-dark-card rounded-lg shadow-sm transition-shadow duration-200 hover:shadow-md';
     div.dataset.index = index;
 
     div.innerHTML = `
@@ -29,16 +50,16 @@ function createTimeSlotElement(slot, index) {
         <div class="flex-grow flex items-center gap-2">
             <div class="flex-1 min-w-0">
                 <label class="block text-xs font-medium text-gray-500 mb-1">开始时间</label>
-                <input type="time" value="${slot.start}" data-field="start" class="w-full p-1.5 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder">
+                <input type="time" value="${slot.start}" data-field="start" class="w-full p-1.5 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent">
             </div>
             <div class="flex-1 min-w-0">
                 <label class="block text-xs font-medium text-gray-500 mb-1">结束时间</label>
-                <input type="time" value="${slot.end}" data-field="end" class="w-full p-1.5 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder">
+                <input type="time" value="${slot.end}" data-field="end" class="w-full p-1.5 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent">
             </div>
         </div>
         
         <!-- Reduce padding -->
-        <button onclick="deleteTimeSlot(${index})" class="flex-shrink-0 px-3 py-2 bg-light-btnDanger dark:bg-dark-btnDanger hover:bg-light-btnDangerHover dark:hover:bg-dark-btnDangerHover text-white rounded-md font-semibold text-sm">
+        <button onclick="deleteTimeSlot(${index})" class="flex-shrink-0 px-3 py-2 bg-light-btnDanger dark:bg-dark-btnDanger hover:bg-light-btnDangerHover dark:hover:bg-dark-btnDangerHover text-white rounded-md font-semibold text-sm transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95">
             删除
         </button>
     `;

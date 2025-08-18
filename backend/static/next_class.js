@@ -4,24 +4,104 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 显示下一节课和本周课程表
     displayNextClass();
-    generateWeeklySchedule();
-    getWeather(); // 新增：获取天气
+    initializeCustomWeekSelector(); // 使用新的自定义周数选择器
+    initializeWeather(); // 新增：初始化天气功能
 });
 
-// 新增：获取并显示逐小时天气预报（带缓存和未来时间过滤）
-async function getWeather() {
+// --- 天气功能 ---
+
+let currentLocation = '116.41,39.92'; // 默认北京
+
+function initializeWeather() {
+    const hourlyBtn = document.getElementById('hourly-btn');
+    const dailyBtn = document.getElementById('daily-btn');
+    const weatherContent = document.getElementById('weather-content');
+    let currentView = localStorage.getItem('weatherView') || 'hourly'; // 从本地存储读取状态
+
+    const checkWidthAndApplyLayout = () => {
+        const isNarrow = window.innerWidth < 420; // 设定一个阈值，例如420px
+        if (currentView === 'daily' && !isNarrow) {
+            weatherContent.classList.add('justify-center');
+        } else {
+            weatherContent.classList.remove('justify-center');
+        }
+    };
+
+    const updateButtonsAndLayout = () => {
+        if (currentView === 'hourly') {
+            hourlyBtn.classList.add('bg-light-btn', 'text-white');
+            hourlyBtn.classList.remove('bg-gray-300', 'dark:bg-gray-600');
+            dailyBtn.classList.remove('bg-light-btn', 'text-white');
+            dailyBtn.classList.add('bg-gray-300', 'dark:bg-gray-600');
+        } else {
+            dailyBtn.classList.add('bg-light-btn', 'text-white');
+            dailyBtn.classList.remove('bg-gray-300', 'dark:bg-gray-600');
+            hourlyBtn.classList.remove('bg-light-btn', 'text-white');
+            hourlyBtn.classList.add('bg-gray-300', 'dark:bg-gray-600');
+        }
+        checkWidthAndApplyLayout(); // 每次更新按钮时都检查布局
+    };
+
+    const fetchAndRender = () => {
+        if (currentView === 'hourly') {
+            getHourlyWeather(currentLocation);
+        } else {
+            getDailyWeather(currentLocation);
+        }
+    };
+
+    hourlyBtn.addEventListener('click', () => {
+        if (currentView !== 'hourly') {
+            currentView = 'hourly';
+            localStorage.setItem('weatherView', currentView); // 保存状态
+            updateButtonsAndLayout();
+            fetchAndRender();
+        }
+    });
+
+    dailyBtn.addEventListener('click', () => {
+        if (currentView !== 'daily') {
+            currentView = 'daily';
+            localStorage.setItem('weatherView', currentView); // 保存状态
+            updateButtonsAndLayout();
+            fetchAndRender();
+        }
+    });
+
+    // 初始化
+    updateButtonsAndLayout(); // 根据存储的状态更新按钮和布局
+
+    window.addEventListener('resize', checkWidthAndApplyLayout); // 监听窗口大小变化
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { longitude, latitude } = position.coords;
+                currentLocation = `${longitude.toFixed(2)},${latitude.toFixed(2)}`;
+                fetchAndRender();
+            },
+            (error) => {
+                console.warn('获取地理位置失败，使用默认位置。', error.message);
+                fetchAndRender();
+            }
+        );
+    } else {
+        console.warn('浏览器不支持地理位置，使用默认位置。');
+        fetchAndRender();
+    }
+}
+
+async function getHourlyWeather(location) {
     const weatherContainer = document.getElementById('weather-container');
-    const scrollContainer = weatherContainer.querySelector('.flex');
+    const weatherContent = document.getElementById('weather-content');
 
     const renderError = (message) => {
-        weatherContainer.querySelector('h3').innerText = '天气加载失败';
-        scrollContainer.innerHTML = `<p class="text-red-500">${message}</p>`;
+        weatherContent.innerHTML = `<p class="text-red-500">${message}</p>`;
         weatherContainer.classList.remove('hidden');
     };
 
-    const renderHourlyWeather = (hourlyData) => {
+    const render = (hourlyData) => {
         const now = new Date();
-        // 核心逻辑：只显示未来的天气预报
         const futureHourlyData = hourlyData.filter(hour => new Date(hour.fxTime) > now);
 
         if (futureHourlyData.length === 0) {
@@ -29,82 +109,86 @@ async function getWeather() {
             return;
         }
 
-        scrollContainer.innerHTML = ''; // 清空旧数据
+        weatherContent.innerHTML = '';
         futureHourlyData.forEach(hour => {
             const d = new Date(hour.fxTime);
             const month = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
             const time = d.getHours() + ':00';
             const displayTime = `${month}/${day} ${time}`;
-
             const card = `
-                <div class="flex-shrink-0 w-28 text-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <div class="flex-shrink-0 w-28 text-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg transition-transform duration-200 ease-in-out hover:scale-105">
                     <p class="text-sm font-medium">${displayTime}</p>
                     <img src="https://icons.qweather.com/assets/icons/${hour.icon}.svg" alt="${hour.text}" class="w-10 h-10 mx-auto my-1 weather-icon">
                     <p class="text-lg font-bold">${hour.temp}°C</p>
                     <p class="text-xs">${hour.text}</p>
                 </div>
             `;
-            scrollContainer.innerHTML += card;
+            weatherContent.innerHTML += card;
         });
         weatherContainer.classList.remove('hidden');
     };
 
-    const fetchWeather = async (location) => {
-        try {
-            const apiKey = "921d41d032274310ab1fe3c774dcff13";
-            const url = `https://devapi.qweather.com/v7/grid-weather/24h?location=${location}&key=${apiKey}`;
-            
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`天气服务响应错误 (HTTP ${response.status})`);
-            
-            const data = await response.json();
-            if (data.code !== "200") throw new Error(`API错误: ${data.code}`);
+    try {
+        const apiKey = "921d41d032274310ab1fe3c774dcff13";
+        const url = `https://devapi.qweather.com/v7/grid-weather/24h?location=${location}&key=${apiKey}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`天气服务响应错误 (HTTP ${response.status})`);
+        
+        const data = await response.json();
+        if (data.code !== "200") throw new Error(`API错误: ${data.code}`);
+        
+        render(data.hourly);
 
-            // 缓存新数据
-            const cacheData = {
-                timestamp: new Date().toISOString(),
-                data: data.hourly
-            };
-            localStorage.setItem('weatherCache', JSON.stringify(cacheData));
-            
-            renderHourlyWeather(data.hourly);
+    } catch (error) {
+        console.error('获取每小时天气失败:', error);
+        renderError('无法获取每小时天气数据。');
+    }
+}
 
-        } catch (error) {
-            console.error('获取天气数据失败:', error);
-            renderError('无法获取天气数据，请检查网络或API配置。');
-        }
+async function getDailyWeather(location) {
+    const weatherContainer = document.getElementById('weather-container');
+    const weatherContent = document.getElementById('weather-content');
+
+    const renderError = (message) => {
+        weatherContent.innerHTML = `<p class="text-red-500">${message}</p>`;
+        weatherContainer.classList.remove('hidden');
     };
 
-    // --- 主逻辑开始 ---
-    const cachedWeather = localStorage.getItem('weatherCache');
-    if (cachedWeather) {
-        const { timestamp, data } = JSON.parse(cachedWeather);
-        const cacheAgeMinutes = (new Date() - new Date(timestamp)) / 1000 / 60;
+    const render = (dailyData) => {
+        weatherContent.innerHTML = '';
+        dailyData.forEach(day => {
+            const d = new Date(day.fxDate);
+            const dayOfWeek = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()];
+            const card = `
+                <div class="flex-shrink-0 w-32 text-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg transition-transform duration-200 ease-in-out hover:scale-105">
+                    <p class="text-sm font-medium">${day.fxDate.substring(5)} (${dayOfWeek})</p>
+                    <img src="https://icons.qweather.com/assets/icons/${day.iconDay}.svg" alt="${day.textDay}" class="w-10 h-10 mx-auto my-1 weather-icon">
+                    <p class="text-lg font-bold">${day.tempMin}° / ${day.tempMax}°C</p>
+                    <p class="text-xs">${day.textDay}</p>
+                </div>
+            `;
+            weatherContent.innerHTML += card;
+        });
+        weatherContainer.classList.remove('hidden');
+    };
 
-        if (cacheAgeMinutes < 30) {
-            console.log("使用缓存天气数据。");
-            renderHourlyWeather(data);
-            return; // 使用缓存，函数结束
-        }
-    }
+    try {
+        const apiKey = "921d41d032274310ab1fe3c774dcff13";
+        const url = `https://devapi.qweather.com/v7/weather/3d?location=${location}&key=${apiKey}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`天气服务响应错误 (HTTP ${response.status})`);
+        
+        const data = await response.json();
+        if (data.code !== "200") throw new Error(`API错误: ${data.code}`);
+        
+        render(data.daily);
 
-    // 如果无缓存或缓存过期，则获取新数据
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { longitude, latitude } = position.coords;
-                const location = `${longitude.toFixed(2)},${latitude.toFixed(2)}`;
-                fetchWeather(location);
-            },
-            (error) => {
-                console.warn('获取地理位置失败，使用默认位置。', error.message);
-                fetchWeather('116.41,39.92'); // 默认北京
-            }
-        );
-    } else {
-        console.warn('浏览器不支持地理位置，使用默认位置。');
-        fetchWeather('116.41,39.92'); // 默认北京
+    } catch (error) {
+        console.error('获取每日天气失败:', error);
+        renderError('无法获取每日天气数据。');
     }
 }
 
@@ -238,25 +322,110 @@ function displayNextClass() {
     }
 }
 
-// 生成本周课程表
-function generateWeeklySchedule() {
+// 新增：初始化自定义周数选择器
+function initializeCustomWeekSelector() {
     const storedCourses = localStorage.getItem('courses');
     const storedStartDate = localStorage.getItem('startDate');
     if (!storedCourses || !storedStartDate) return;
 
+    const courses = JSON.parse(storedCourses);
+    const startDate = new Date(storedStartDate);
+    const now = new Date();
+    const timeDiff = now - startDate;
+    const currentWeek = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 7)) + 1;
+
+    let maxWeek = 0;
+    courses.forEach(course => {
+        course.schedules.forEach(schedule => {
+            const weeks = parseWeeks(schedule.weeks);
+            const maxInSchedule = Math.max(...weeks);
+            if (maxInSchedule > maxWeek) maxWeek = maxInSchedule;
+        });
+    });
+
+    const input = document.getElementById('week-selector-input');
+    const list = document.getElementById('week-selector-list');
+    let selectedWeek = currentWeek;
+
+    function updateInputValue() {
+        input.value = `第 ${selectedWeek} 周${selectedWeek === currentWeek ? ' (本周)' : ''}`;
+    }
+
+    function populateList(filter = '') {
+        list.innerHTML = '';
+        for (let i = 1; i <= maxWeek; i++) {
+            const weekText = `第 ${i} 周${i === currentWeek ? ' (本周)' : ''}`;
+            if (weekText.includes(filter)) {
+                const item = document.createElement('div');
+                item.textContent = weekText;
+                item.className = 'p-2 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700';
+                if (i === selectedWeek) {
+                    item.classList.add('bg-light-btn', 'text-white');
+                }
+                item.addEventListener('click', () => {
+                    selectedWeek = i;
+                    generateWeeklySchedule(selectedWeek);
+                    updateInputValue();
+                    hideList();
+                });
+                list.appendChild(item);
+            }
+        }
+    }
+
+    function showList() {
+        list.classList.remove('hidden');
+        setTimeout(() => list.classList.add('visible'), 10); // Delay to trigger transition
+    }
+
+    function hideList() {
+        list.classList.remove('visible');
+        // Wait for the transition to finish before hiding it completely
+        list.addEventListener('transitionend', () => {
+            list.classList.add('hidden');
+        }, { once: true });
+    }
+
+    function toggleList() {
+        if (list.classList.contains('hidden')) {
+            populateList();
+            showList();
+        } else {
+            hideList();
+        }
+    }
+
+    input.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent the document click listener from firing immediately
+        toggleList();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.autocomplete')) {
+            hideList();
+        }
+    });
+
+    // Initial setup
+    updateInputValue();
+    generateWeeklySchedule(selectedWeek);
+}
+
+// 生成指定周的课程表
+function generateWeeklySchedule(weekNumber) {
+    const storedCourses = localStorage.getItem('courses');
+    if (!storedCourses) return;
+
     try {
         const courses = JSON.parse(storedCourses);
-        const startDate = new Date(storedStartDate);
-        const now = new Date();
-        const timeDiff = now - startDate;
-        const currentWeek = Math.floor(timeDiff / (1000 * 60 * 60 * 24 * 7)) + 1;
-
+        const scheduleTitle = document.getElementById('schedule-title');
         const scheduleDiv = document.getElementById('weekly-schedule');
-        scheduleDiv.innerHTML = `<h3 class="text-xl font-bold text-center mb-4">本周 (第 ${currentWeek} 周) 课程表</h3>`;
+        
+        scheduleTitle.textContent = `第 ${weekNumber} 周课程表`;
+        scheduleDiv.innerHTML = ''; // 清空旧的课程表
 
         let timeConfig = JSON.parse(localStorage.getItem('timeConfig'));
         if (!timeConfig || !timeConfig.time_slots) timeConfig = { time_slots: [] }; // Fallback
-
         const days = ['一', '二', '三', '四', '五', '六', '日'];
         let weekHasClasses = false;
 
@@ -265,7 +434,7 @@ function generateWeeklySchedule() {
             courses.forEach(course => {
                 course.schedules.forEach(schedule => {
                     const weeks = parseWeeks(schedule.weeks);
-                    if (parseInt(schedule.day) === i && weeks.includes(currentWeek)) {
+                    if (parseInt(schedule.day) === i && weeks.includes(weekNumber)) {
                         dayClasses.push({
                             ...schedule,
                             courseName: course.name
@@ -278,7 +447,7 @@ function generateWeeklySchedule() {
                 weekHasClasses = true;
                 dayClasses.sort((a, b) => getTimeInMinutes(a.time_slot.split('-')[0]) - getTimeInMinutes(b.time_slot.split('-')[0]));
 
-                let dayHtml = `<div class="p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                let dayHtml = `<div class="p-4 bg-gray-100 dark:bg-gray-700 rounded-lg transition-shadow duration-200 hover:shadow-lg">
                                  <h4 class="font-bold text-lg mb-2">周${days[i-1]}</h4>`;
                 dayClasses.forEach(cls => {
                     const timeSlot = cls.time_slot.split('-').map(Number);
@@ -299,7 +468,7 @@ function generateWeeklySchedule() {
         }
 
         if (!weekHasClasses) {
-            scheduleDiv.innerHTML += `<p class="text-center text-gray-500 dark:text-gray-400">本周没有课程安排。</p>`;
+            scheduleDiv.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400">第 ${weekNumber} 周没有课程安排。</p>`;
         }
 
     } catch (error) {

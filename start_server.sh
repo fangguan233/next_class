@@ -1,30 +1,40 @@
 #!/bin/bash
+# Script to start the Flask server in the background using nohup and manage PID.
 
-echo "Starting Flask Server in Conda Base Environment..."
-
-# Initialize Conda for this shell session
-eval "$(conda shell.bash hook)"
-
-# Activate the base conda environment
-conda activate base
+# Navigate to the directory where this script is located
+cd "$(dirname "$0")"
 
 # Navigate to the backend directory
-cd backend || exit
+cd backend
 
-# Install dependencies using the environment's pip
-echo "Installing/updating dependencies..."
-pip install -r requirements.txt --upgrade
+PID_FILE="server.pid"
+LOG_FILE="server.log"
 
-# Start the Flask server in the background
-export FLASK_RUN_PORT=1000
-echo "Starting server on http://127.0.0.1:$FLASK_RUN_PORT"
-nohup python app.py &
+# Check if server is already running by checking the PID file
+if [ -f "$PID_FILE" ]; then
+    echo "PID file found. Server might be running with PID $(cat "$PID_FILE"). Please run stop.sh first."
+    exit 1
+fi
 
-# Get the process ID (PID) of the last background command
+echo "Searching for SSL certificates..."
+# Check if certificate and key exist before starting
+if [ ! -f "certificate.crt" ] || [ ! -f "private.key" ]; then
+    echo "!!! CRITICAL ERROR: SSL certificate or key not found. !!!"
+    echo "!!! Please ensure 'certificate.crt' and 'private.key' exist in the current directory. !!!"
+    exit 1
+fi
+
+echo "SSL certificates found. Starting server in HTTPS mode in the background..."
+
+# Execute the Flask app using python3 in the background with nohup
+# Redirect stdout and stderr to the log file
+nohup python3 app.py > "$LOG_FILE" 2>&1 &
+
+# Get the PID of the last background process
 PID=$!
-echo "Server started with PID: $PID"
 
-# Save the PID to a file
-echo $PID > server.pid
+# Write the PID to the PID file for the stop script to use
+echo $PID > "$PID_FILE"
 
-echo "Server PID saved to server.pid. Check nohup.out for logs."
+echo "Server started successfully in the background with PID: $PID"
+echo "Output is being logged to $LOG_FILE"

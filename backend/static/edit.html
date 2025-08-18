@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>编辑课程</title>
+    <link rel="icon" href="/static/favicon.png" type="image/png">
     <script>
         // Anti-flicker script
         if (localStorage.getItem('theme') === 'dark') {
             document.documentElement.classList.add('dark');
         }
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="vender/tailwindcss.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -63,35 +64,47 @@
             transition: max-height 0.5s ease-in, padding 0.5s ease-in;
         }
     </style>
+    <script src="js/cache-manager.js"></script>
 </head>
 <body class="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text font-sans min-h-screen flex flex-col items-center p-4 transition-colors duration-300">
-    <div class="w-full max-w-2xl mx-auto">
-        <div class="bg-light-card dark:bg-dark-card rounded-2xl shadow-xl p-6 sm:p-8">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                <h1 class="text-2xl font-bold">课程管理</h1>
-                <div class="flex items-center space-x-2">
-                    <button onclick="addCourse()" class="flex items-center justify-center px-4 py-2 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text font-semibold rounded-lg shadow-md hover:bg-light-btnHover dark:hover:bg-dark-btnHover transition-all duration-200">
-                        <span class="sm:hidden">新增</span>
-                        <span class="hidden sm:inline">新增课程</span>
-                    </button>
-                    <button onclick="saveAllChanges()" class="flex items-center justify-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">
-                        <span class="sm:hidden">保存</span>
-                        <span class="hidden sm:inline">保存课程</span>
-                    </button>
-                </div>
-            </div>
-            <div class="mb-6 p-4 bg-light-bg dark:bg-dark-bg rounded-lg">
-                <label for="start-date" class="block text-md font-medium mb-2">开学第一天 (周一)</label>
-                <input type="date" id="start-date" name="start-date" class="w-full sm:w-auto p-2 rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder">
-            </div>
-            <div id="courses-container" class="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-                <!-- 课程将在这里动态加载 -->
-            </div>
+    <div class="w-full max-w-4xl mx-auto bg-light-card dark:bg-dark-card rounded-2xl shadow-xl p-6 sm:p-8 transition-all duration-500 ease-in-out transform opacity-0 translate-y-4" id="main-container">
+        <h1 class="text-2xl sm:text-3xl font-bold text-light-accent dark:text-dark-accent mb-6 text-center">手动编辑课程</h1>
+        
+        <div id="courses-container" class="space-y-6">
+            <!-- 课程条目将在这里动态生成 -->
         </div>
-        <div class="text-center mt-6">
-            <button onclick="handleExit()" class="px-6 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-lg shadow-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-all duration-200">返回主页</button>
+
+        <div class="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
+            <button id="add-course-btn" class="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg">
+                <i class="fas fa-plus mr-2"></i> 添加新课程
+            </button>
+            <button id="save-changes-btn" class="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg">
+                <i class="fas fa-save mr-2"></i> 保存所有更改
+            </button>
+            <button onclick="window.location.href='index.html'" class="w-full sm:w-auto px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg">
+                <i class="fas fa-arrow-left mr-2"></i> 返回主页
+            </button>
+        </div>
+
+        <!-- GitHub Star Link -->
+        <div class="mt-8 text-center">
+            <a href="https://github.com/fangguan233/next_class" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-xs text-gray-500 dark:text-gray-400 hover:text-light-btn dark:hover:text-dark-btn transition-colors duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="mr-2" viewBox="0 0 16 16">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                如果喜欢本项目请 Star
+            </a>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const mainContainer = document.getElementById('main-container');
+            setTimeout(() => {
+                mainContainer.classList.remove('opacity-0', 'translate-y-4');
+            }, 100);
+        });
+    </script>
     <script src="js/edit.js"></script>
+    <script src="sw-register.js"></script>
 </body>
 </html>
