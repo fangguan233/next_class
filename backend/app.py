@@ -334,8 +334,17 @@ def feature_flags():
 
 @app.route('/api/etag', methods=['GET'])
 def get_etag():
-    """返回当前应用会e的ETag。"""
+    """返回当前应用会话的ETag。"""
     return jsonify({"success": True, "etag": APP_ETAG})
+
+@app.route('/api/site-info', methods=['GET'])
+def get_site_info():
+    """返回站点的额外信息，如ICP备案号。"""
+    icp_license = os.getenv('ICP_LICENSE', '')
+    return jsonify({
+        "success": True,
+        "icp_license": icp_license
+    })
 
 
 @app.route('/api/process-data', methods=['POST'])

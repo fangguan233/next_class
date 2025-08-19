@@ -36,12 +36,15 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Close autocomplete list when clicking elsewhere
-    document.addEventListener('click', (e) => {
+document.addEventListener('click', (e) => {
         // Check if the click is outside the autocomplete container
         if (!e.target.closest('.autocomplete')) {
             closeAllAutocompleteLists();
         }
     });
+
+    // 显示ICP备案号
+    displayIcpLicense();
 });
 
 // --- STATE MANAGEMENT ---
@@ -314,4 +317,30 @@ function saveAllChanges() {
 function handleExit() {
     if (hasUnsavedChanges) { if (confirm("您有未保存的更改，确定要离开吗？所有未保存的修改都将丢失。")) window.location.href = 'index.html' }
     else { window.location.href = 'index.html' }
+}
+
+// --- ICP备案号显示 ---
+async function displayIcpLicense() {
+    try {
+        const response = await fetch('/api/site-info');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.success && data.icp_license) {
+            const footerContainer = document.createElement('div');
+            footerContainer.id = 'icp-container';
+            footerContainer.className = 'fixed bottom-0 left-0 w-full text-center py-2 bg-gray-100 dark:bg-gray-900 text-xs text-gray-500 dark:text-gray-400 z-50';
+            
+            const link = document.createElement('a');
+            link.href = 'https://beian.miit.gov.cn/';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = data.icp_license;
+            link.className = 'hover:text-light-btn dark:hover:text-dark-accent';
+
+            footerContainer.appendChild(link);
+            document.body.appendChild(footerContainer);
+        }
+    } catch (error) {
+        console.error("无法获取或显示ICP备案信息:", error);
+    }
 }
