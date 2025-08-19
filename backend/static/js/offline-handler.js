@@ -24,11 +24,10 @@ function handleOfflineMode() {
 
     // 2. 禁用所有需要网络连接的按钮
     const buttonsToDisable = [
-        'button[onclick="processData()"]',
-        'button[onclick="importWithShareCode()"]',
-        'button[onclick="shareSchedule()"]',
-        '#save-changes-btn', // 编辑页的保存按钮
-        '#save-btn' // 时间编辑页的保存按钮
+'button[onclick="processData()"]', // 依赖AI解析
+        'button[onclick="importWithShareCode()"]', // 依赖网络获取分享文件
+        'button[onclick="shareSchedule()"]' // 依赖网络上传分享文件
+        // 移除了 '#save-changes-btn' 和 '#save-btn'，因为它们仅操作localStorage
     ];
 
     buttonsToDisable.forEach(selector => {

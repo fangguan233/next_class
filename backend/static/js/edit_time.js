@@ -25,6 +25,19 @@ const saveBtn = document.getElementById('save-btn');
 });
 
 function loadTimeSlots() {
+    // --- 加载开学日期 ---
+    const startDateInput = document.getElementById('start-date');
+    const storedStartDate = localStorage.getItem('startDate');
+    if (storedStartDate && startDateInput) {
+        // 将ISO字符串转换为YYYY-MM-DD格式
+        const date = new Date(storedStartDate);
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        startDateInput.value = `${year}-${month}-${day}`;
+    }
+
+    // --- 加载时间段 ---
     const container = document.getElementById('time-slots-container');
     const timeConfig = getTimeConfigFromStorage();
     container.innerHTML = ''; // 清空
@@ -90,6 +103,20 @@ function deleteTimeSlot(index) {
 
 function saveTimeSlots() {
     try {
+        // --- 保存开学日期 ---
+        const startDateInput = document.getElementById('start-date');
+        if (startDateInput && startDateInput.value) {
+            const selectedDate = new Date(startDateInput.value);
+            // 验证日期是否为周一 (0=周日, 1=周一, ..., 6=周六)
+            if (selectedDate.getDay() !== 1) {
+                alert("保存失败：开学第一天必须是周一。");
+                return; // 中止保存
+            }
+            // 存储为ISO字符串以保持一致性
+            localStorage.setItem('startDate', selectedDate.toISOString());
+        }
+
+        // --- 保存时间段 ---
         const timeConfig = getTimeConfigFromStorage();
         const newTimeSlots = [];
         const slotElements = document.querySelectorAll('.time-slot-item');
@@ -104,10 +131,11 @@ function saveTimeSlots() {
 
         timeConfig.time_slots = newTimeSlots;
         localStorage.setItem('timeConfig', JSON.stringify(timeConfig));
-        alert('时间段已成功保存！');
+        
+        alert('所有设置已成功保存！');
         loadTimeSlots(); // 重新加载以刷新UI
     } catch (error) {
-        console.error("保存时间段失败:", error);
+        console.error("保存设置失败:", error);
         alert('保存失败，请检查控制台获取更多信息。');
     }
 }
