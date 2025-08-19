@@ -1,4 +1,4 @@
-# Next_Class v1.3.0
+# Next_Class v1.3.0 rc1
 
 ## v1.3.0 更新日志 (2025-08-18)
 
@@ -150,5 +150,6 @@ sh stop.sh
     *   执行 `sh stop.sh` 停止现有服务，然后执行 `sh start_server.sh` 重新启动。
 
 服务器现在将以HTTPS模式运行。
+
 
 
