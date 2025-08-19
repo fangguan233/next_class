@@ -67,7 +67,15 @@
 </div>
         </div>
 
-        <div id="time-slots-container" class="space-y-4 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
+        <div class="border-t border-b border-gray-200 dark:border-gray-700 my-6 py-6">
+            <h2 class="text-lg font-semibold mb-3 text-center">开学日期设置</h2>
+            <div class="flex flex-col items-center">
+                <label for="start-date" class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">请选择本学期的开学第一天 (必须是周一)</label>
+                <input type="date" id="start-date" class="w-full max-w-xs p-2 border rounded-lg bg-light-input dark:bg-dark-input border-light-inputBorder dark:border-dark-inputBorder focus:ring-2 focus:ring-light-btn dark:focus:ring-dark-accent focus:border-transparent transition">
+            </div>
+        </div>
+
+        <div id="time-slots-container" class="space-y-4 max-h-[40vh] overflow-y-auto custom-scrollbar pr-2">
             <!-- 时间段将在这里动态加载 -->
         </div>
 
