@@ -12,9 +12,17 @@ import time
 import glob
 from apscheduler.schedulers.background import BackgroundScheduler
 from werkzeug.utils import secure_filename
+import logging
+from datetime import datetime
+import atexit
 
 # 加载 .env 文件中的环境变量
 load_dotenv()
+
+# --- App and Process Configuration ---
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PID_FILE = os.path.join(SCRIPT_DIR, 'process_info.json')
+LOG_DIR = os.path.join(SCRIPT_DIR, 'logs')
 
 # 配置
 app = Flask(__name__, static_folder='static')
@@ -22,10 +30,52 @@ ENABLE_IMAGE_PROCESSING = os.getenv('ENABLE_IMAGE_PROCESSING', 'false').lower() 
 
 # 全局 ETag，在应用启动时生成
 APP_ETAG = str(uuid.uuid4())
-print(f" * ETag for this session: {APP_ETAG}")
+
+# --- Logging Setup ---
+def setup_logging():
+    """Configures logging to file and console."""
+    log_filename = f"app_{datetime.now().strftime('%Y-%m-%d')}.log"
+    log_filepath = os.path.join(LOG_DIR, log_filename)
+    
+    # Ensure log directory exists
+    if not os.path.exists(LOG_DIR):
+        os.makedirs(LOG_DIR)
+        
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_filepath, encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+    return log_filepath
+
+# --- PID and Status File Management ---
+def write_pid_file(log_path):
+    """Writes process information to the status file."""
+    pid = os.getpid()
+    info = {
+        "pid": pid,
+        "status": "running",
+        "log_path": os.path.abspath(log_path),
+        "start_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    with open(PID_FILE, 'w', encoding='utf-8') as f:
+        json.dump(info, f, indent=4)
+    logging.info(f"Application started with PID: {pid}. Status file '{PID_FILE}' created.")
+
+def remove_pid_file():
+    """Removes the status file upon clean exit."""
+    if os.path.exists(PID_FILE):
+        os.remove(PID_FILE)
+        logging.info(f"Application shutting down. Status file '{PID_FILE}' removed.")
+
+# Register the cleanup function to be called on exit
+atexit.register(remove_pid_file)
 
 share_bp = Blueprint('share', __name__, url_prefix='/api/share')
-SHARE_CONFIG_DIR = os.path.join(os.path.dirname(__file__), 'shared_configs')
+SHARE_CONFIG_DIR = os.path.join(SCRIPT_DIR, 'shared_configs')
 SHARE_CONFIG_EXPIRATION_HOURS = int(os.getenv('SHARE_CONFIG_EXPIRATION_HOURS', 24))
 SHARE_RATE_LIMIT_SECONDS = int(os.getenv('SHARE_RATE_LIMIT_SECONDS', 60))
 
@@ -444,7 +494,9 @@ def get_share_code():
 
 @share_bp.route('/upload', methods=['POST'])
 def upload_share_file():
-    """上传分享文件。"""
+    """
+    上传分享文件，并在文件中嵌入过期时间元数据。
+    """
     # 速率限制
     ip_address = request.remote_addr
     last_share_time = share_timestamps.get(ip_address, 0)
@@ -462,58 +514,126 @@ def upload_share_file():
     if file.filename == '' or not share_code:
         return jsonify({"success": False, "message": "没有选择文件或缺少分享码"}), 400
 
-    if file and share_code:
+    try:
+        # 读取上传的课程数据
+        courses_data = json.load(file)
+        
+        # 计算过期时间戳
+        expires_at = None
+        if SHARE_CONFIG_EXPIRATION_HOURS > 0:
+            expires_at = int(current_time + SHARE_CONFIG_EXPIRATION_HOURS * 3600)
+        
+        # 构建新的文件内容，包含元数据
+        new_content = {
+            "_metadata": {
+                "created_at": int(current_time),
+                "expires_at": expires_at # 如果为None，表示永不过期
+            },
+            "courses": courses_data
+        }
+        
+        # 使用时间戳命名文件以避免冲突
+        timestamp = int(current_time)
+        filename = f"{share_code}_{timestamp}.json"
+        file_path = os.path.join(SHARE_CONFIG_DIR, filename)
+
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(new_content, f, indent=4, ensure_ascii=False)
+
         # 更新分享时间戳
         share_timestamps[ip_address] = current_time
-        
-        # 使用时间戳命名文件
-        timestamp = int(time.time())
-        filename = f"{share_code}_{timestamp}.json"
-        file.save(os.path.join(SHARE_CONFIG_DIR, filename))
         return jsonify({"success": True, "message": "文件上传成功"})
+
+    except json.JSONDecodeError:
+        return jsonify({"success": False, "message": "上传的文件不是有效的JSON格式。"}), 400
+    except Exception as e:
+        logging.error(f"Error during file upload: {e}")
+        return jsonify({"success": False, "message": "服务器内部错误。"}), 500
 
 @share_bp.route('/get/<code>', methods=['GET'])
 def get_share_file(code):
-    """根据分享码下载文件。"""
+    """
+    根据分享码下载文件，并先检查其内部的过期时间。
+    """
     files = glob.glob(os.path.join(SHARE_CONFIG_DIR, f"{code}_*.json"))
     if not files:
         return jsonify({"success": False, "message": "分享码不存在或已过期"}), 404
-    
+
     # 返回最新的文件
-    latest_file = max(files, key=os.path.getctime)
-    return send_from_directory(SHARE_CONFIG_DIR, os.path.basename(latest_file))
+    latest_file_path = max(files, key=os.path.getctime)
+    
+    try:
+        with open(latest_file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        expires_at = data.get("_metadata", {}).get("expires_at")
+        
+        # 检查是否过期
+        if expires_at is not None and time.time() > expires_at:
+            # 文件已过期，但可能清理任务还没来得及删除
+            return jsonify({"success": False, "message": "分享码已过期。"}), 404
+            
+        # 返回课程数据，对前端隐藏元数据
+        # 直接返回课程数组的JSON，而不是一个包含它的对象
+        return jsonify(data.get("courses", []))
+
+    except (json.JSONDecodeError, FileNotFoundError):
+        return jsonify({"success": False, "message": "分享数据损坏或丢失。"}), 500
 
 # --- 文件清理任务 ---
 
 def cleanup_expired_files():
-    """清理过期的分享文件。"""
-    if SHARE_CONFIG_EXPIRATION_HOURS == 0:
-        return # 0表示永不过期
-
+    """
+    清理过期的分享文件。
+    该逻辑现在基于每个文件内部的 _metadata.expires_at 时间戳。
+    """
     now = time.time()
-    expiration_seconds = SHARE_CONFIG_EXPIRATION_HOURS * 3600
-    
-    for filename in os.listdir(SHARE_CONFIG_DIR):
-        if '_' in filename and filename.endswith('.json'):
+    for file_path in glob.glob(os.path.join(SHARE_CONFIG_DIR, "*.json")):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            expires_at = data.get("_metadata", {}).get("expires_at")
+            # 如果 expires_at 存在且小于当前时间，则删除文件
+            if expires_at is not None and now > expires_at:
+                os.remove(file_path)
+                logging.info(f"Removed expired share file: {os.path.basename(file_path)}")
+        except (json.JSONDecodeError, FileNotFoundError, KeyError):
+            # 如果文件损坏或格式不符，也考虑删除，避免累积垃圾文件
+            logging.warning(f"Share file {os.path.basename(file_path)} is corrupted or malformed. Deleting it.")
             try:
-                timestamp = int(filename.split('_')[1].split('.')[0])
-                if (now - timestamp) > expiration_seconds:
-                    os.remove(os.path.join(SHARE_CONFIG_DIR, filename))
-                    print(f"删除了过期的分享文件: {filename}")
-            except (ValueError, IndexError):
-                continue # 文件名格式不正确，跳过
+                os.remove(file_path)
+            except OSError as e:
+                logging.error(f"Could not delete corrupted file {os.path.basename(file_path)}: {e}")
+            continue
+        except OSError as e:
+            logging.error(f"Error accessing or removing file {os.path.basename(file_path)}: {e}")
+            continue
 
 app.register_blueprint(share_bp)
 
 
 if __name__ == '__main__':
-    # 启动后台清理任务
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(func=cleanup_expired_files, trigger="interval", hours=1)
-    scheduler.start()
+    # 1. Setup Logging
+    log_file_path = setup_logging()
 
-    # --- 服务器运行模式配置 ---
-    # 从 .env 文件加载配置
+    # 2. Write PID file
+    # This should only run in the main process, not the reloader's process.
+    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        write_pid_file(log_file_path)
+
+    # 3. Start background cleanup task
+    # This check ensures the scheduler only runs once in the child process (the actual app).
+    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        scheduler = BackgroundScheduler()
+        # For testing purposes, let's run it more frequently. In production, this can be hours=1.
+        scheduler.add_job(func=cleanup_expired_files, trigger="interval", minutes=1)
+        scheduler.start()
+        logging.info("Started background task for cleaning up expired share files.")
+        # It's good practice to shut down the scheduler cleanly on exit
+        atexit.register(lambda: scheduler.shutdown())
+
+    # 4. Server run mode configuration
     ENABLE_HTTPS_FLAG = os.getenv('ENABLE_HTTPS', 'false').lower() == 'true'
     HTTP_PORT_CONFIG = int(os.getenv('HTTP_PORT', 2000))
     HTTPS_PORT_CONFIG = int(os.getenv('HTTPS_PORT', 443))
@@ -522,31 +642,29 @@ if __name__ == '__main__':
     port = HTTP_PORT_CONFIG
 
     if ENABLE_HTTPS_FLAG:
-        print(" * HTTPS mode is enabled in .env file.")
+        logging.info("HTTPS mode is enabled in .env file.")
         ssl_cert_path = 'certificate.crt'
         ssl_key_path = 'private.key'
         
-        # 检查证书文件是否存在
         if not os.path.exists(ssl_cert_path) or not os.path.exists(ssl_key_path):
-            print("!!! CRITICAL ERROR: SSL certificate or key not found for HTTPS mode. !!!")
-            print(f"!!! Please ensure '{ssl_cert_path}' and '{ssl_key_path}' exist in the backend directory, or set ENABLE_HTTPS=false in .env. !!!")
+            logging.critical("CRITICAL ERROR: SSL certificate or key not found for HTTPS mode.")
+            logging.critical(f"Please ensure '{ssl_cert_path}' and '{ssl_key_path}' exist, or set ENABLE_HTTPS=false in .env.")
             exit(1)
 
-        print(" * Loading SSL context from files.")
+        logging.info("Loading SSL context from files.")
         ssl_context = (ssl_cert_path, ssl_key_path)
         port = HTTPS_PORT_CONFIG
-        print(f" * Starting server in HTTPS mode on port {port}.")
     else:
-        print(" * HTTPS mode is disabled in .env file.")
-        print(f" * Starting server in HTTP mode on port {port}.")
+        logging.info("HTTPS mode is disabled in .env file.")
 
-    # 运行 Flask 应用
-    # 注意：use_reloader=False 是为了确保后台任务（如scheduler）在debug模式下不会被执行两次。
-    # 如果您不需要后台任务，可以将其设置为 True 以获得更好的开发体验。
+    logging.info(f"Starting server on port {port}. ETag for this session: {APP_ETAG}")
+    
+    # 5. Run Flask App
+    # use_reloader=True is now safe to use for development.
     app.run(
-        debug=True, 
-        host='0.0.0.0', 
-        port=port, 
-        use_reloader=False, 
+        debug=True,
+        host='0.0.0.0',
+        port=port,
+        use_reloader=True,
         ssl_context=ssl_context
     )
