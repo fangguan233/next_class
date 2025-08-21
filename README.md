@@ -10,6 +10,8 @@ AI驱动的智能课程表，一键解析文本图片，支持离线使用和图
 ![图片2](./assets/readme_images/image2.png)
 ![图片3](./assets/readme_images/image3.png)
 ![图片4](./assets/readme_images/image4.png)
+![图片5](./assets/readme_images/download（7）.png)
+
 
 ## 技术栈
 
@@ -174,3 +176,4 @@ sh stop.sh
     *   执行 `sh stop.sh` 停止现有服务，然后执行 `sh start_server.sh` 重新启动。
 
 服务器现在将以HTTPS模式运行。
+
