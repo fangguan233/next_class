@@ -149,15 +149,23 @@ async function handleStart() {
 
     async function handleUpdateExpiry(event) {
         const filename = event.target.dataset.filename;
-        const newHours = prompt("请输入新的有效小时数 (输入 'infinite' 表示永久有效):", "24");
+        const newHours = prompt("请输入新的有效小时数 (输入 '-1' 表示永久有效):", "24");
 
         if (newHours === null) return; // User cancelled
+
+        // Validate if the input is a number or -1
+        if (isNaN(parseFloat(newHours))) {
+            alert("请输入一个有效的数字。");
+            return;
+        }
+        
+        const valueToSend = newHours.trim() === '-1' ? -1 : parseFloat(newHours);
 
         try {
             const response = await fetch(`${API_BASE}/share-codes/update-expiry`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename, new_expiry_hours: newHours })
+                body: JSON.stringify({ filename, new_expiry_hours: valueToSend })
             });
             const result = await response.json();
 if (result.success) {
@@ -173,9 +181,10 @@ alert('更新时发生网络错误。');
     }
 
     function formatRemainingTime(seconds) {
-        if (seconds < 0) {
-            const defaultHours = parseInt(document.getElementById('share-codes-tbody').dataset.defaultHours || 24);
-if (defaultHours === 0) return '永久有效';
+        if (seconds === 'infinite') {
+            return '永久有效';
+        }
+        if (typeof seconds !== 'number' || seconds < 0) {
             return '已过期';
         }
 

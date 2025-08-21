@@ -1,9 +1,11 @@
 #!/bin/bash
 # Get the directory of the currently running script
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
-# Change to the backend directory to run the python script
+PID_FILE="$SCRIPT_DIR/backend/admin.pid"
+# Change to the backend directory
 cd "$SCRIPT_DIR/backend"
-
-echo "Starting admin application (admin_app.py)..."
-python3 admin_app.py
+# Start the admin app in the background using nohup
+nohup python3 admin_app.py &> /dev/null &
+# Save the PID of the last background process
+echo $! > "$PID_FILE"
+echo "Admin application started."

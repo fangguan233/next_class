@@ -376,7 +376,7 @@ async def process_image():
 def feature_flags():
     """返回后端功能开关的状态。"""
     return jsonify({
-        "success": True,
+         "success": True,
         "features": {
             "image_processing": ENABLE_IMAGE_PROCESSING
         }
@@ -519,15 +519,16 @@ def upload_share_file():
         courses_data = json.load(file)
         
         # 计算过期时间戳
-        expires_at = None
         if SHARE_CONFIG_EXPIRATION_HOURS > 0:
             expires_at = int(current_time + SHARE_CONFIG_EXPIRATION_HOURS * 3600)
+        else:
+            expires_at = -1 # -1 表示永不过期
         
         # 构建新的文件内容，包含元数据
         new_content = {
             "_metadata": {
                 "created_at": int(current_time),
-                "expires_at": expires_at # 如果为None，表示永不过期
+                "expires_at": expires_at
             },
             "courses": courses_data
         }
@@ -568,8 +569,8 @@ def get_share_file(code):
         
         expires_at = data.get("_metadata", {}).get("expires_at")
         
-        # 检查是否过期
-        if expires_at is not None and time.time() > expires_at:
+        # 检查是否过期 (-1代表永不过期)
+        if expires_at != -1 and expires_at is not None and time.time() > expires_at:
             # 文件已过期，但可能清理任务还没来得及删除
             return jsonify({"success": False, "message": "分享码已过期。"}), 404
             
@@ -594,8 +595,9 @@ def cleanup_expired_files():
                 data = json.load(f)
             
             expires_at = data.get("_metadata", {}).get("expires_at")
-            # 如果 expires_at 存在且小于当前时间，则删除文件
-            if expires_at is not None and now > expires_at:
+            
+            # 如果 expires_at 存在, 不等于-1, 且小于当前时间，则删除文件
+            if expires_at is not None and expires_at != -1 and now > expires_at:
                 os.remove(file_path)
                 logging.info(f"Removed expired share file: {os.path.basename(file_path)}")
         except (json.JSONDecodeError, FileNotFoundError, KeyError):
@@ -619,7 +621,7 @@ if __name__ == '__main__':
 
     # 2. Write PID file
     # This should only run in the main process, not the reloader's process.
-    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         write_pid_file(log_file_path)
 
     # 3. Start background cleanup task

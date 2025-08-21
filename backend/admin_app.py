@@ -212,8 +212,8 @@ def get_share_codes():
             if created_at is None: continue # Skip files without metadata
 
             # Calculate remaining time
-            if expires_at is None:
-                expires_in_seconds = float('inf') # Represents 'infinite'
+            if expires_at == -1:
+                expires_in_seconds = 'infinite' # Use a string literal for JSON compatibility
             else:
                 expires_in_seconds = expires_at - now
 
@@ -252,13 +252,13 @@ def update_share_code_expiry():
         if "_metadata" not in file_data:
             return jsonify({"success": False, "message": "File is missing _metadata field."}), 400
         # Calculate new expiry timestamp
-        if str(new_expiry_hours_str).lower() == 'infinite':
-            new_expires_at = None # None represents infinity
+        if new_expiry_hours_str == -1:
+            new_expires_at = -1 # -1 represents infinity
             message = f"'{filename}' set to never expire."
         else:
             new_expiry_hours = float(new_expiry_hours_str)
             if new_expiry_hours < 0:
-                return jsonify({"success": False, "message": "Expiry hours cannot be negative."}), 400
+                return jsonify({"success": False, "message": "Expiry hours cannot be negative (except for -1)."}), 400
             
             new_expires_at = int(time.time() + new_expiry_hours * 3600)
             message = f"Expiry for '{filename}' updated to {new_expiry_hours} hours from now."
