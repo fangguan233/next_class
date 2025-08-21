@@ -144,27 +144,29 @@ sh stop.sh
 
 **获取证书步骤:**
 
-1.  **启动HTTP服务**: 确保您的服务器已在公网IP上运行，并可以通过域名或IP地址访问。首先，保持 `.env` 文件中 `ENABLE_HTTPS=false`，然后执行 `sh start_server.sh` 以HTTP模式启动服务。
-
-2.  **注册并验证域名**:
+1.  **注册并验证域名**:
     *   访问 [ZeroSSL.com](https://zerossl.com/) 并注册一个免费账户。
     *   进入控制台，创建一个新证书，输入您的域名或服务器IP地址。
     *   选择 “HTTP File Upload” (HTTP文件上传) 作为验证方法。ZeroSSL会提供一个验证文件（例如 `C123D456.txt`）和一串验证内容。
 
-3.  **上传验证文件**:
+2.  **上传验证文件**:
     *   在项目 `backend/static/` 目录下，创建路径 `.well-known/pki-validation/`。*   将 ZeroSSL 提供的验证文件（例如 `C123D456.txt`）放入此目录，并确保文件内容与ZeroSSL提供的完全一致。
+
+3.  **启动HTTP服务**:
+    *   首先，保持 `.env` 文件中 `ENABLE_HTTPS=false`，然后执行 `sh start_server.sh` 以HTTP模式启动服务。
     *   此时，验证地址 `http://您的域名/.well-known/pki-validation/C123D456.txt` 应该可以公开访问。
 
 4.  **完成验证并下载证书**:
     *   返回 ZeroSSL 网站，点击验证。验证成功后，下载证书文件。选择 **Nginx** 格式，您会得到一个 `.zip` 压缩包。
 
 5.  **配置证书**:
-    *   解压下载的 `.zip` 文件，您会得到 `certificate.crt` 和 `private.key` 两个文件。
-    *   将这两个文件上传到项目的 `backend/` 目录下。
+    *   解压下载的 `.zip` 文件，您会得到三个文件。
+    *   将这三个文件上传到项目的 `backend/` 目录下。
 
 6.  **激活HTTPS模式**:
     *   编辑 `.env` 文件，将 `ENABLE_HTTPS` 的值修改为 `true`。
     *   执行 `sh stop.sh` 停止现有服务，然后执行 `sh start_server.sh` 重新启动。
 
 服务器现在将以HTTPS模式运行。
+
 
