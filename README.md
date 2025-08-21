@@ -5,10 +5,11 @@
 AI驱动的智能课程表，一键解析文本图片，支持离线使用和图片导出。告别手动录入，轻松管理你的大学生活！
 
 本项目是一个基于 **Python + Flask** 后端和原生前端技术栈的现代化Web应用。它利用大语言模型（通义千问）的强大能力，智能解析非结构化课程表数据，并通过PWA技术提供离线访问和类似原生应用的体验。
-![图片1](http://a32623411.cosfiles.com/a32623411/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202025-08-21%20122137.png)
-![图片2](http://a32623411.cosfiles.com/a32623411/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202025-08-21%20122101.png)
-![图片3](http://a32623411.cosfiles.com/a32623411/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202025-08-21%20121932.png)
-![图片4](http://a32623411.cosfiles.com/a32623411/%E5%B1%8F%E5%B9%95%E6%88%AA%E5%9B%BE%202025-08-21%20121910.png)
+
+![图片1](./assets/readme_images/image1.png)
+![图片2](./assets/readme_images/image2.png)
+![图片3](./assets/readme_images/image3.png)
+![图片4](./assets/readme_images/image4.png)
 
 ## 技术栈
 
