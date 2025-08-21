@@ -620,16 +620,14 @@ if __name__ == '__main__':
     log_file_path = setup_logging()
 
     # 2. Write PID file
-    # This should only run in the main process, not the reloader's process.
-    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+    # In debug mode with reloader, this ensures it runs only in the child process.
+    # In production (or without reloader), it runs directly.
+    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         write_pid_file(log_file_path)
 
-    # 3. Start background cleanup task
-    # This check ensures the scheduler only runs once in the child process (the actual app).
-    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        # 3. Start background cleanup task only in the correct process
         scheduler = BackgroundScheduler()
-        # For testing purposes, let's run it more frequently. In production, this can be hours=1.
-        scheduler.add_job(func=cleanup_expired_files, trigger="interval", minutes=1)
+        # For testing purposes, let's run it more frequently. In production, this can be hours=1.scheduler.add_job(func=cleanup_expired_files, trigger="interval", minutes=1)
         scheduler.start()
         logging.info("Started background task for cleaning up expired share files.")
         # It's good practice to shut down the scheduler cleanly on exit
@@ -662,11 +660,11 @@ if __name__ == '__main__':
     logging.info(f"Starting server on port {port}. ETag for this session: {APP_ETAG}")
     
     # 5. Run Flask App
-    # use_reloader=True is now safe to use for development.
+    # use_reloader=True is not recommended for long-running stability.
     app.run(
         debug=True,
         host='0.0.0.0',
         port=port,
-        use_reloader=True,
+        use_reloader=False, # Disabled for stability in long-running scenarios
         ssl_context=ssl_context
     )
