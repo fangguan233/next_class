@@ -5,10 +5,16 @@ import json
 import time
 import threading
 import glob
+import logging
+import warnings
 from datetime import datetime, timedelta
 import requests
 from flask import Flask, jsonify, request, render_template
 from dotenv import load_dotenv
+from urllib3.exceptions import InsecureRequestWarning
+
+# Suppress only the single InsecureRequestWarning from urllib3 needed for self-signed certs.
+warnings.filterwarnings('ignore', category=InsecureRequestWarning)
 
 # --- Configuration ---
 load_dotenv()
@@ -19,6 +25,19 @@ LOG_DIR = os.path.join(SCRIPT_DIR, 'logs')
 MAIN_APP_SCRIPT = os.path.join(SCRIPT_DIR, 'app.py')
 SHARE_CONFIG_DIR = os.path.join(SCRIPT_DIR, 'shared_configs')
 SHARE_CONFIG_EXPIRATION_HOURS = int(os.getenv('SHARE_CONFIG_EXPIRATION_HOURS', 24))
+
+# --- Custom Log Filter for Admin App ---
+class AdminLogFilter(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        # Filter out successful polling requests from the admin frontend
+        if 'GET /api/admin/status HTTP/1.1" 200' in msg:
+            return False
+        if 'GET /api/admin/logs HTTP/1.1" 200' in msg:
+            return False
+        if 'GET /api/admin/share-codes HTTP/1.1" 200' in msg:
+            return False
+        return True
 
 # --- Flask App Initialization ---
 app = Flask(__name__, template_folder='templates', static_folder='static')
@@ -353,9 +372,13 @@ if __name__ == '__main__':
     if not os.path.exists(LOG_DIR):
         os.makedirs(LOG_DIR)
     
-    # 3. Start the watchdog thread
+    # 3. Apply the custom log filter to Werkzeug's logger
+    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger.addFilter(AdminLogFilter())
+
+    # 4. Start the watchdog thread
     monitor_thread = threading.Thread(target=watchdog_thread, daemon=True)
     monitor_thread.start()
 
-    # Start the Flask application
+    # 5. Start the Flask application
     app.run(host='0.0.0.0', port=ADMIN_PORT, debug=True, use_reloader=False)
