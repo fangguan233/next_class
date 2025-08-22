@@ -419,8 +419,13 @@ def feature_flags():
 
 @app.route('/api/etag', methods=['GET'])
 def get_etag():
-    """返回当前应用会话的ETag。"""
-    return jsonify({"success": True, "etag": APP_ETAG})
+    """返回当前应用会话的ETag和开发者模式状态。"""
+    dev_mode = os.getenv('DEV_MODE', 'false').lower() == 'true'
+    return jsonify({
+        "success": True, 
+        "etag": APP_ETAG,
+        "dev_mode": dev_mode
+    })
 
 @app.route('/api/site-info', methods=['GET'])
 def get_site_info():

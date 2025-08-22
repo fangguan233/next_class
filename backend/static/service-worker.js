@@ -40,16 +40,36 @@ self.addEventListener('activate', event => {
                 cacheNames.map(cacheName => {
                     if (cacheName !== CACHE_NAME) {
                         console.log(`[SW] Mismatch found! Old cache: "${cacheName}", New cache: "${CACHE_NAME}". This is a version update.`);
-                        console.log('[SW] Deleting old cache and posting VERSION_UPDATED message to clients.');
-                        
-                        // 在删除缓存前，先通知客户端
-                        self.clients.matchAll().then(clients => {
-                            clients.forEach(client => {
-                                console.log('[SW] Posting VERSION_UPDATED to client:', client.id);
-                                client.postMessage({ type: 'VERSION_UPDATED' });
+                        // A version update has been detected. Now, we check the developer mode.
+                        return fetch('/api/etag')
+                            .then(response => response.json())
+                            .then(data => {
+                                console.log('[SW] Fetched /api/etag. Dev mode is:', data.dev_mode);
+                                // If developer mode is on, notify clients to reload.
+                                if (data.dev_mode) {
+                                    console.log('[SW] Dev mode is ON. Notifying clients to reload for an update.');
+                                    return self.clients.matchAll().then(clients => {
+                                        clients.forEach(client => {
+                                            console.log('[SW] Posting VERSION_UPDATED to client:', client.id);
+                                            client.postMessage({ type: 'VERSION_UPDATED' });
+                                        });
+                                    });
+                                } else {
+                                    console.log('[SW] Dev mode is OFF. The new version will be used on the next full navigation, but no forced reload will occur.');
+                                    // Do nothing, no message is sent.
+                                }
+                            })
+                            .catch(error => {
+                                console.error('[SW] Failed to fetch etag for dev_mode check, defaulting to not sending update message.', error);
+                                // In case of error, we default to the safer option: don't force a reload.
+                            })
+                            .finally(() => {
+                                // IMPORTANT: Always delete the old cache, regardless of dev_mode.
+                                // This action effectively "updates the ETag" from the user's perspective,
+                                // as the new cache is now active for future navigations.
+                                console.log(`[SW] Deleting old cache: "${cacheName}"`);
+                                return caches.delete(cacheName);
                             });
-                        });
-                        return caches.delete(cacheName);
                     } else {
                         console.log(`[SW] Cache name "${cacheName}" matches current version. No action needed.`);
                         return Promise.resolve();
