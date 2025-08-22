@@ -20,12 +20,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const statusData = await statusResponse.json();
             updateStatusUI(statusData);
 
-            if (statusData.status === 'running') {
+            // Check if status starts with 'running' to cover 'running_healthy' and 'running_unhealthy'
+            if (statusData.status && statusData.status.startsWith('running')) {
                 const logsResponse = await fetch(`${API_BASE}/logs`);
                 const logsData = await logsResponse.json();
                 updateLogsUI(logsData);
             } else {
-                logContainer.textContent = `服务当前状态: ${statusData.status}. 无日志可显示。`;
+                logContainer.textContent = `服务当前状态: ${statusData.status || '未知'}. 无日志可显示。`;
             }
 
             // Fetch and update share codes
@@ -48,9 +49,15 @@ document.addEventListener('DOMContentLoaded', () => {
         startTimeInfo.textContent = data.start_time || 'N/A';
 
         switch (data.status) {
-            case 'running':
-                statusText.textContent = '运行中';
+            case 'running_healthy':
+                statusText.textContent = '健康运行中';
                 statusDot.classList.add('status-running');
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                break;
+            case 'running_unhealthy':
+                statusText.textContent = '运行但不健康';
+                statusDot.classList.add('status-unhealthy');
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
                 break;

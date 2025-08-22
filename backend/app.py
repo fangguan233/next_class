@@ -15,6 +15,7 @@ from werkzeug.utils import secure_filename
 import logging
 from datetime import datetime
 import atexit
+import sys
 
 # 加载 .env 文件中的环境变量
 load_dotenv()
@@ -31,9 +32,34 @@ ENABLE_IMAGE_PROCESSING = os.getenv('ENABLE_IMAGE_PROCESSING', 'false').lower() 
 # 全局 ETag，在应用启动时生成
 APP_ETAG = str(uuid.uuid4())
 
+# --- Custom Log Filter ---
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record):
+        # Return False to prevent a log record from being processed.
+        # This will filter out successful health check logs.
+        return 'GET /api/health HTTP/1.1" 200' not in record.getMessage()
+
 # --- Logging Setup ---
+class StreamToLogger:
+    """
+    A helper class to redirect stdout/stderr to a logger instance.
+    """
+    def __init__(self, logger, level):
+        self.logger = logger
+        self.level = level
+        self.linebuf = ''
+    def write(self, buf):
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.level, line.rstrip())
+
+    def flush(self):
+        pass
+
 def setup_logging():
-    """Configures logging to file and console."""
+    """
+    Configures logging to a file and redirects stdout/stderr to the same file.
+    This ensures that all output (including prints) goes to the log.
+    """
     log_filename = f"app_{datetime.now().strftime('%Y-%m-%d')}.log"
     log_filepath = os.path.join(LOG_DIR, log_filename)
     
@@ -41,14 +67,23 @@ def setup_logging():
     if not os.path.exists(LOG_DIR):
         os.makedirs(LOG_DIR)
         
+    # Configure the root logger
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler(log_filepath, encoding='utf-8'),
-            logging.StreamHandler()
+            logging.StreamHandler() # Keep console output as well
         ]
     )
+    
+    # Redirect stdout and stderr to the logging system
+    stdout_logger = logging.getLogger('STDOUT')
+    sys.stdout = StreamToLogger(stdout_logger, logging.INFO)
+    
+    stderr_logger = logging.getLogger('STDERR')
+    sys.stderr = StreamToLogger(stderr_logger, logging.ERROR)
+
     return log_filepath
 
 # --- PID and Status File Management ---
@@ -396,6 +431,11 @@ def get_site_info():
         "icp_license": icp_license
     })
 
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """A lightweight endpoint to confirm the service is responsive."""
+    return jsonify({"status": "ok"}), 200
+
 
 @app.route('/api/process-data', methods=['POST'])
 async def process_data():
@@ -619,6 +659,10 @@ if __name__ == '__main__':
     # 1. Setup Logging
     log_file_path = setup_logging()
 
+    # Add the custom filter to Flask's default logger to suppress health check logs
+    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger.addFilter(HealthCheckFilter())
+
     # 2. Write PID file
     # In debug mode with reloader, this ensures it runs only in the child process.
     # In production (or without reloader), it runs directly.
@@ -668,5 +712,3 @@ if __name__ == '__main__':
         use_reloader=False, # Disabled for stability in long-running scenarios
         ssl_context=ssl_context
     )
-
-#尝试关闭热加载

@@ -6,6 +6,7 @@ import time
 import threading
 import glob
 from datetime import datetime, timedelta
+import requests
 from flask import Flask, jsonify, request, render_template
 from dotenv import load_dotenv
 
@@ -35,26 +36,54 @@ def get_process_info():
     except (json.JSONDecodeError, FileNotFoundError):
         return None
 
+def check_service_health():
+    """
+    Performs a network health check on the main application.
+    Returns True if healthy, False otherwise.
+    """
+    try:
+        # Read .env to determine protocol and port
+        enable_https = os.getenv('ENABLE_HTTPS', 'false').lower() == 'true'
+        protocol = 'https' if enable_https else 'http'
+        port = os.getenv('HTTPS_PORT', 443) if enable_https else os.getenv('HTTP_PORT', 2000)
+        
+        health_url = f"{protocol}://127.0.0.1:{port}/api/health"
+        
+        # Make the request with a short timeout.
+        # `verify=False` is used to ignore SSL certificate validation for localhost checks.
+        response = requests.get(health_url, timeout=3, verify=False)
+        
+        # Check for a 200 OK status and expected response
+        if response.status_code == 200 and response.json().get("status") == "ok":
+            return True
+    except requests.exceptions.RequestException as e:
+        # Any network-level error (timeout, connection refused, etc.)
+        print(f"Health check failed: {e}")
+    except (json.JSONDecodeError, KeyError):
+        # The service responded, but not with the expected JSON
+        print("Health check failed: Invalid JSON response.")
+    return False
+
 def is_process_running(pid):
-    """Checks if a process with the given PID is running."""
+    """
+    Checks if a process with the given PID is running.
+    Uses 'ps' command on Linux/macOS for better reliability, similar to stop.sh.
+    """
     if pid is None:
         return False
     system = platform.system()
     try:
         if system == "Windows":
-            # The 'tasklist' command is more reliable than 'os.kill' on Windows.
-            # It returns output if the process exists.
-            output = subprocess.check_output(
-                ["tasklist", "/fi", f"pid eq {pid}"],
-                stderr=subprocess.STDOUT
-            )
+            # The 'tasklist' command is more reliable on Windows.
+            output = subprocess.check_output(["tasklist", "/fi", f"pid eq {pid}"], stderr=subprocess.STDOUT)
             return str(pid) in output.decode('utf-8', errors='ignore')
-        else: # Linux, macOS
-            # os.kill with signal 0 is a standard way to check for process existence.
-            os.kill(pid, 0)
+        else:  # Linux, macOS
+            # Using 'ps -p' is more robust than 'os.kill'. It returns a non-zero exit code if the process doesn't exist.
+            subprocess.check_output(["ps", "-p", str(pid)], stderr=subprocess.STDOUT)
             return True
-    except (subprocess.CalledProcessError, OSError):
-        # CalledProcessError for tasklist, OSError for os.kill
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # CalledProcessError means the command ran but the process was not found.
+        # FileNotFoundError would mean the 'ps' or 'tasklist' command doesn't exist.
         return False
 
 def start_main_process():
@@ -122,19 +151,30 @@ def stop_main_process():
 # --- Watchdog for Auto-Restart ---
 
 def watchdog_thread():
-    """A daemon thread that monitors the main app and restarts it if it crashes."""
+    """A daemon thread that monitors the main app and restarts it if it crashes or becomes unresponsive."""
     print(" * Watchdog thread started. Monitoring main application...")
     while True:
-        # We perform the check internally instead of calling the API endpoint
-        # to avoid request overhead and potential deadlocks.
+        time.sleep(15) # Check every 15 seconds
         info = get_process_info()
-        if info: # PID file exists, check if the process is alive
-            if not is_process_running(info.get('pid')):
-                print("! Watchdog: Main app has crashed. Attempting to restart...")
-                start_main_process()
+        if not info:
+            continue # Main app is stopped, nothing to do.
+
+        pid = info.get('pid')
+        process_is_alive = is_process_running(pid)
+        service_is_healthy = False
+
+        if process_is_alive:
+            service_is_healthy = check_service_health()
         
-        # Check every 15 seconds
-        time.sleep(15)
+        # Restart if the process has crashed OR if the service is unresponsive
+        if not process_is_alive:
+            print(f"! Watchdog: Main app process (PID: {pid}) has crashed. Attempting to restart...")
+            start_main_process()
+        elif not service_is_healthy:
+            print(f"! Watchdog: Main app service (PID: {pid}) is unresponsive. Attempting to restart...")
+            stop_main_process() # First, try to stop the unresponsive process gracefully
+            time.sleep(2) # Give it a moment to die
+            start_main_process()
 
 # --- API Endpoints ---
 
@@ -143,17 +183,20 @@ def get_status():
     """API endpoint to get the status of the main application."""
     info = get_process_info()
     if not info:
-        return jsonify({"status": "stopped", "pid": None, "start_time": None})
+        return jsonify({"status": "stopped", "pid": None, "start_time": None, "health": "unknown"})
 
     pid = info.get('pid')
     if is_process_running(pid):
-        return jsonify({"status": "running", "pid": pid, "start_time": info.get("start_time")})
+        # Process is running, now check service health
+        is_healthy = check_service_health()
+        status = "running_healthy" if is_healthy else "running_unhealthy"
+        return jsonify({"status": status, "pid": pid, "start_time": info.get("start_time"), "health": "ok" if is_healthy else "failed"})
     else:
         # Process is not running, but pid file exists. It has crashed.
         # Clean up the stale PID file.
         if os.path.exists(PID_FILE):
             os.remove(PID_FILE)
-        return jsonify({"status": "crashed", "pid": pid, "start_time": info.get("start_time")})
+        return jsonify({"status": "crashed", "pid": pid, "start_time": info.get("start_time"), "health": "unknown"})
 
 @app.route('/api/admin/start', methods=['POST'])
 def start_app():
@@ -169,14 +212,22 @@ def stop_app():
 
 @app.route('/api/admin/logs', methods=['GET'])
 def get_logs():
-    """API endpoint to get the latest log entries."""
+    """API endpoint to get the latest log entries with enhanced debugging."""
     info = get_process_info()
     if not info or not info.get('log_path'):
-        return jsonify({"success": False, "logs": "Log file not specified."}), 404
+        return jsonify({"success": False, "logs": "Log file path not found in process_info.json."}), 404
 
     log_path = info['log_path']
+    
+    # Enhanced check with current working directory for debugging
     if not os.path.exists(log_path):
-        return jsonify({"success": False, "logs": f"Log file not found at: {log_path}"}), 404
+        current_working_dir = os.getcwd()
+        error_message = (
+            f"Log file not found at path: '{log_path}'.\n"
+            f"Admin app's current working directory is: '{current_working_dir}'.\n"
+            f"Please check if the path is absolute or relative and accessible from the CWD."
+        )
+        return jsonify({"success": False, "logs": error_message}), 404
 
     try:
         with open(log_path, 'r', encoding='utf-8') as f:
@@ -285,10 +336,24 @@ def index():
     return render_template('admin.html')
 
 if __name__ == '__main__':
-    # Ensure log directory exists
+    # --- Cleanup and Initialization ---
+    print("Admin application starting...")
+    
+    # 1. Clean up stray .log files in the 'backend' directory upon start
+    print("Cleaning up old log files in the root of the backend directory...")
+    stray_logs = glob.glob(os.path.join(SCRIPT_DIR, '*.log'))
+    for log_file in stray_logs:
+        try:
+            os.remove(log_file)
+            print(f"Removed stray log file: {os.path.basename(log_file)}")
+        except OSError as e:
+            print(f"Error removing stray log file {os.path.basename(log_file)}: {e}")
+
+    # 2. Ensure log directory for the admin app itself exists
     if not os.path.exists(LOG_DIR):
         os.makedirs(LOG_DIR)
-# Start the watchdog thread
+    
+    # 3. Start the watchdog thread
     monitor_thread = threading.Thread(target=watchdog_thread, daemon=True)
     monitor_thread.start()
 
