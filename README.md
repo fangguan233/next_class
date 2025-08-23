@@ -9,6 +9,7 @@ AI驱动的智能课程表，一键解析文本图片，支持离线使用和图
 本项目是一个基于 **Python + Flask** 后端和原生前端技术栈的现代化Web应用。它利用大语言模型（通义千问）的强大能力，智能解析非结构化课程表数据，并通过PWA技术提供离线访问和类似原生应用的体验。
 
 项目截图：
+
 ![图片1](./assets/readme_images/image1.png)
 ![图片2](./assets/readme_images/image2.png)
 ![图片3](./assets/readme_images/image3.png)
@@ -223,3 +224,4 @@ sh stop.sh
     *   执行 `sh stop.sh` 停止现有服务，然后执行 `sh start_server.sh` 重新启动。
 
 服务器现在将以HTTPS模式运行。
+
