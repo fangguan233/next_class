@@ -32,13 +32,23 @@
                 return;
             }
 
-            // ---- Handle VERSION_UPDATED signal ----
-            if (event.data.type === 'VERSION_UPDATED') {
-                console.log('New version has been activated. Reloading page to apply updates...');
+            // ---- Handle UPDATE_AVAILABLE signal ----
+            if (event.data.type === 'UPDATE_AVAILABLE') {
+                const { payload } = event.data;
+                console.log('[CacheManager] Update available. Payload:', payload);
                 
-                // 强制重新加载页面以使用新的静态文件
-                // 用户的 localStorage 数据不会被触动
-                window.location.reload();
+                const metaTag = document.querySelector('meta[name="app-version"]');
+                const currentVersion = metaTag ? metaTag.getAttribute('content') : '0.0.0';
+
+                console.log(`[CacheManager] Current client version: ${currentVersion}, New server version: ${payload.new_version}`);
+
+                // 决策逻辑
+                if (payload.dev_mode || payload.new_version !== currentVersion) {
+                    console.log('[CacheManager] Reloading page to apply updates...');
+                    window.location.reload();
+                } else {
+                    console.log('[CacheManager] Versions match in production mode. No reload needed.');
+                }
                 return;
             }
         });

@@ -419,12 +419,14 @@ def feature_flags():
 
 @app.route('/api/etag', methods=['GET'])
 def get_etag():
-    """返回当前应用会话的ETag和开发者模式状态。"""
+    """返回当前应用会话的ETag、开发者模式状态和应用版本号。"""
     dev_mode = os.getenv('DEV_MODE', 'false').lower() == 'true'
+    app_version = os.getenv('APP_VERSION', '0.0.0')
     return jsonify({
         "success": True, 
         "etag": APP_ETAG,
-        "dev_mode": dev_mode
+        "dev_mode": dev_mode,
+        "app_version": app_version
     })
 
 @app.route('/api/site-info', methods=['GET'])
@@ -516,9 +518,31 @@ def index():
     </html>
     """
 
-# 提供其他静态文件的路由
+# 提供其他静态文件的路由，并为核心HTML注入版本号
 @app.route('/<path:path>')
 def serve_static(path):
+    # 核心HTML文件列表，需要注入版本号
+    core_html_files = ['index.html', 'next_class.html', 'edit.html', 'edit_time.html', 'push_admin.html']
+    
+    if path in core_html_files:
+        try:
+            # 读取HTML文件内容
+            with open(os.path.join(app.static_folder, path), 'r', encoding='utf-8') as f:
+                html_content = f.read()
+
+            # 获取版本号
+            app_version = os.getenv('APP_VERSION', '0.0.0')
+            
+            # 注入版本号到 <head> 标签中
+            # 我们使用一个简单的字符串替换。在HTML的</head>之前插入meta标签。
+            meta_tag = f'<meta name="app-version" content="{app_version}">'
+            html_content = html_content.replace('</head>', f'    {meta_tag}\n</head>')
+            
+            return Response(html_content, mimetype='text/html')
+        except FileNotFoundError:
+            return "File not found", 404
+    
+    # 对于非核心文件，正常提供
     return send_from_directory(app.static_folder, path)
 
 # --- 分享功能 ---
@@ -562,6 +586,11 @@ def upload_share_file():
     try:
         # 读取上传的课程数据
         courses_data = json.load(file)
+
+        # 检查并修复可能由Admin端编辑导致的数据嵌套问题
+        if isinstance(courses_data, dict) and '_metadata' in courses_data and 'courses' in courses_data:
+            logging.warning("Detected nested data structure in share upload. Extracting inner 'courses' data.")
+            courses_data = courses_data['courses']
         
         # 计算过期时间戳
         if SHARE_CONFIG_EXPIRATION_HOURS > 0:
@@ -675,10 +704,11 @@ if __name__ == '__main__':
         write_pid_file(log_file_path)
 
         # 3. Start background cleanup task only in the correct process
-        scheduler = BackgroundScheduler()
-        # For testing purposes, let's run it more frequently. In production, this can be hours=1.scheduler.add_job(func=cleanup_expired_files, trigger="interval", minutes=1)
+        scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
+        # For testing purposes, let's run it more frequently. In production, this can be hours=1.
+        scheduler.add_job(func=cleanup_expired_files, trigger="interval", minutes=1)
         scheduler.start()
-        logging.info("Started background task for cleaning up expired share files.")
+        logging.info("Started background task for cleaning up expired share files (runs every 1 minute).")
         # It's good practice to shut down the scheduler cleanly on exit
         atexit.register(lambda: scheduler.shutdown())
 

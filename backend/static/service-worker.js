@@ -20,59 +20,56 @@ const CORE_ASSETS = [
 
 // 1. 安装 Service Worker 并缓存核心资源
 self.addEventListener('install', event => {
-    console.log('Service Worker: Installing...');
+    console.log('[SW] Install event started.');
     event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => {
-            console.log('Service Worker: Caching core assets');
-            return cache.addAll(CORE_ASSETS);
-        })
+        Promise.all([
+            // 缓存核心资源
+            caches.open(CACHE_NAME).then(cache => {
+                console.log('[SW] Caching core assets...');
+                return cache.addAll(CORE_ASSETS);
+            })
+            // 在此版本中，我们不再在安装时获取版本号，
+            // 因为我们无法可靠地获取“旧”SW的版本号。
+            // 逻辑将完全在 activate 事件中处理。
+        ])
     );
     self.skipWaiting();
 });
 
 // 2. 激活 Service Worker 并清理旧缓存
 self.addEventListener('activate', event => {
-    console.log(`[SW] Activate event started. Current cache name should be: ${CACHE_NAME}`);
+    console.log(`[SW] Activate event started. New active cache is: ${CACHE_NAME}`);
     event.waitUntil(
         caches.keys().then(cacheNames => {
-            console.log('[SW] Found existing cache names:', cacheNames);
             return Promise.all(
                 cacheNames.map(cacheName => {
                     if (cacheName !== CACHE_NAME) {
-                        console.log(`[SW] Mismatch found! Old cache: "${cacheName}", New cache: "${CACHE_NAME}". This is a version update.`);
-                        // A version update has been detected. Now, we check the developer mode.
-                        return fetch('/api/etag')
-                            .then(response => response.json())
-                            .then(data => {
-                                console.log('[SW] Fetched /api/etag. Dev mode is:', data.dev_mode);
-                                // If developer mode is on, notify clients to reload.
-                                if (data.dev_mode) {
-                                    console.log('[SW] Dev mode is ON. Notifying clients to reload for an update.');
-                                    return self.clients.matchAll().then(clients => {
-                                        clients.forEach(client => {
-                                            console.log('[SW] Posting VERSION_UPDATED to client:', client.id);
-                                            client.postMessage({ type: 'VERSION_UPDATED' });
+                        console.log(`[SW] Old cache detected: "${cacheName}". Update available.`);
+                        
+                        // 获取新版本信息并通知客户端，让客户端做决策
+                        fetch('/api/etag')
+                            .then(res => res.json())
+                            .then(serverInfo => {
+                                self.clients.matchAll().then(clients => {
+                                    clients.forEach(client => {
+         console.log('[SW] Posting UPDATE_AVAILABLE to client:', client.id);
+                                        client.postMessage({
+                                            type: 'UPDATE_AVAILABLE',
+                                            payload: {
+                                                dev_mode: serverInfo.dev_mode,
+                                                new_version: serverInfo.app_version
+             }
                                         });
                                     });
-                                } else {
-                                    console.log('[SW] Dev mode is OFF. The new version will be used on the next full navigation, but no forced reload will occur.');
-                                    // Do nothing, no message is sent.
-                                }
+                                });
                             })
-                            .catch(error => {
-                                console.error('[SW] Failed to fetch etag for dev_mode check, defaulting to not sending update message.', error);
-                                // In case of error, we default to the safer option: don't force a reload.
-                            })
-                            .finally(() => {
-                                // IMPORTANT: Always delete the old cache, regardless of dev_mode.
-                                // This action effectively "updates the ETag" from the user's perspective,
-                                // as the new cache is now active for future navigations.
-                                console.log(`[SW] Deleting old cache: "${cacheName}"`);
-                                return caches.delete(cacheName);
+                            .catch(err => {
+                                console.error('[SW] Failed to fetch server info for update notification.', err);
                             });
-                    } else {
-                        console.log(`[SW] Cache name "${cacheName}" matches current version. No action needed.`);
-                        return Promise.resolve();
+
+                        // 无论如何都删除旧缓存
+                        console.log(`[SW] Deleting old cache: "${cacheName}"`);
+                        return caches.delete(cacheName);
                     }
                 })
             );
@@ -115,12 +112,12 @@ self.addEventListener('fetch', event => {
                     if (response.ok) {
                         const responseToCache = response.clone();
                         caches.open(CACHE_NAME).then(cache => {
-                            // 对天气图标做特殊缓存
-                            if (url.pathname.startsWith('/api/weather-icon/')) {
+                            // 缓存 /api/etag 以便版本比较
+                            if (url.pathname === '/api/etag' || url.pathname.startsWith('/api/weather-icon/')) {
                                 cache.put(request, responseToCache);
                             }
                         });
-}
+                    }
                     return response;
                 })
                 .catch(() => {
