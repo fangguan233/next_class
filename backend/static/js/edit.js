@@ -27,6 +27,13 @@ document.addEventListener('DOMContentLoaded', function() {
         saveBtn.addEventListener('click', saveAllChanges);
     }
 
+    const ganttViewBtn = document.getElementById('gantt-view-btn');
+    if (ganttViewBtn) {
+        ganttViewBtn.addEventListener('click', () => {
+            window.location.href = 'conflict_detection.html';
+        });
+    }
+
     // --- Event Listeners for Safety and UI ---
     window.addEventListener('beforeunload', e => {
         if (hasUnsavedChanges) {
