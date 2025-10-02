@@ -662,29 +662,32 @@ def cleanup_expired_files():
     清理过期的分享文件。
     该逻辑现在基于每个文件内部的 _metadata.expires_at 时间戳。
     """
-    now = time.time()
-    for file_path in glob.glob(os.path.join(SHARE_CONFIG_DIR, "*.json")):
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            expires_at = data.get("_metadata", {}).get("expires_at")
-            
-            # 如果 expires_at 存在, 不等于-1, 且小于当前时间，则删除文件
-            if expires_at is not None and expires_at != -1 and now > expires_at:
-                os.remove(file_path)
-                logging.info(f"Removed expired share file: {os.path.basename(file_path)}")
-        except (json.JSONDecodeError, FileNotFoundError, KeyError):
-            # 如果文件损坏或格式不符，也考虑删除，避免累积垃圾文件
-            logging.warning(f"Share file {os.path.basename(file_path)} is corrupted or malformed. Deleting it.")
+    try:
+        now = time.time()
+        for file_path in glob.glob(os.path.join(SHARE_CONFIG_DIR, "*.json")):
             try:
-                os.remove(file_path)
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                expires_at = data.get("_metadata", {}).get("expires_at")
+                
+                # 如果 expires_at 存在, 不等于-1, 且小于当前时间，则删除文件
+                if expires_at is not None and expires_at != -1 and now > expires_at:
+                    os.remove(file_path)
+                    # No logging info for successful cleanup to reduce noise
+            except (json.JSONDecodeError, FileNotFoundError, KeyError):
+                # 如果文件损坏或格式不符，也考虑删除，避免累积垃圾文件
+                logging.warning(f"Share file {os.path.basename(file_path)} is corrupted or malformed. Deleting it.")
+                try:
+                    os.remove(file_path)
+                except OSError as e:
+                    logging.error(f"Could not delete corrupted file {os.path.basename(file_path)}: {e}")
+                continue
             except OSError as e:
-                logging.error(f"Could not delete corrupted file {os.path.basename(file_path)}: {e}")
-            continue
-        except OSError as e:
-            logging.error(f"Error accessing or removing file {os.path.basename(file_path)}: {e}")
-            continue
+                logging.error(f"Error accessing or removing file {os.path.basename(file_path)}: {e}")
+                continue
+    except Exception as e:
+        logging.error(f"An unexpected error occurred during file cleanup: {e}")
 
 app.register_blueprint(share_bp)
 

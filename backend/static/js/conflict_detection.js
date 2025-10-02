@@ -130,43 +130,43 @@ class ConflictDetectionGantt {
     renderGanttChart() {
         const container = document.getElementById('gantt-container');
         if (!container) return;
-        
+
         container.innerHTML = '';
-        
+
+        // 全局冲突检测
+        this.conflicts = this.detectConflicts();
+
         // 检测是否为移动设备
         const isMobile = window.innerWidth <= 768;
-        
+
         // 创建表头和内容容器
         const header = document.createElement('div');
         header.className = 'gantt-header';
         header.style.height = isMobile ? '40px' : '30px'; // 移动端更大的表头
-        
+
         const content = document.createElement('div');
         content.className = 'gantt-content';
         content.style.height = `${this.timeSlots.length * 120}px`;
-        
+
         // 渲染表头（星期标签）
         this.renderHeader(header);
-        
+
         // 渲染时间网格
         this.renderTimeGrid(content);
-        
+
         // 添加到容器
         container.appendChild(header);
         container.appendChild(content);
-        
+
         // 转换课程数据为甘特图格式
         const ganttData = this.convertToGanttData();
-        
-        // 检测冲突
-        this.conflicts = this.detectConflicts(ganttData);
-        
+
         // 渲染课程块
         ganttData.forEach(item => {
-            const isConflict = this.conflicts.has(item.id);
+            const isConflict = this.conflicts.has(item.title);
             this.renderCourseBlock(content, item, isConflict);
         });
-        
+
         // 更新冲突警告
         this.updateConflictWarning();
     }
@@ -282,6 +282,12 @@ class ConflictDetectionGantt {
         // 获取触摸或鼠标坐标
         const getCoordinates = (e) => {
             if (e.type.startsWith('touch')) {
+                if (e.type === 'touchend') {
+                    return {
+                        x: e.changedTouches[0].clientX,
+                        y: e.changedTouches[0].clientY
+                    };
+                }
                 return {
                     x: e.touches[0].clientX,
                     y: e.touches[0].clientY
@@ -499,40 +505,64 @@ class ConflictDetectionGantt {
         this.hasUnsavedChanges = true;
     }
     
-    detectConflicts(ganttData) {
+    detectConflicts() {
+        const calendar = {};
         const conflicts = new Map();
-        const calendar = new Map();
-        
-        // 确保数据完整性检查
-        ganttData.forEach(item => {
-            if (!item.day || !item.startSlot || !item.endSlot || !item.title) {
-                console.warn('Invalid course data detected:', item);
-                return;
-            }
-            
-            for (let slot = item.startSlot; slot <= item.endSlot; slot++) {
-                const key = `${item.day}-${slot}`;
-                if (calendar.has(key)) {
-                    const existingItem = calendar.get(key);
-                    if (existingItem.title !== item.title) {
-                        conflicts.set(item.id, true);
-                        conflicts.set(existingItem.id, true);
+        const conflictDetails = [];
+        const reportedConflicts = new Set();
+
+        for (const course of this.courses) {
+            for (const schedule of course.schedules) {
+                const weeks = this.parseWeeks(schedule.weeks);
+                const day = schedule.day;
+                const timeParts = schedule.time_slot.split('-').map(Number);
+
+                if (timeParts.length === 2 && !isNaN(timeParts[0]) && !isNaN(timeParts[1])) {
+                    for (const week of weeks) {
+                        for (let slot = timeParts[0]; slot <= timeParts[1]; slot++) {
+                            const key = `${week}-${day}-${slot}`;
+                            if (calendar[key]) {
+                                const existingCourseName = calendar[key];
+                                if (existingCourseName !== course.name) {
+                                    const conflictKey = [existingCourseName, course.name].sort().join('-');
+                                    if (!reportedConflicts.has(conflictKey)) {
+                                        conflicts.set(course.name, true);
+                                        conflicts.set(existingCourseName, true);
+                                        conflictDetails.push({
+                                            course1: existingCourseName,
+                                            course2: course.name,
+                                            week: week,
+                                            day: day,
+                                            slot: slot
+                                        });
+                                        reportedConflicts.add(conflictKey);
+                                    }
+                                }
+                            } else {
+                                calendar[key] = course.name;
+                            }
+                        }
                     }
-                } else {
-                    calendar.set(key, item);
                 }
             }
-        });
-        
+        }
+        this.conflictDetails = conflictDetails;
         return conflicts;
     }
     
     updateConflictWarning() {
         const warningElement = document.getElementById('conflict-warning');
         if (!warningElement) return;
-        
-        if (this.conflicts.size > 0) {
-            warningElement.textContent = `检测到 ${this.conflicts.size / 2} 个时间冲突！请调整课程时间或保存后手动编辑。`;
+
+        if (this.conflictDetails.length > 0) {
+            let message = `检测到 ${this.conflictDetails.length} 个时间冲突！\n`;
+            message += this.conflictDetails.slice(0, 5).map(c => 
+                `- ${c.course1} vs ${c.course2} (第${c.week}周, 周${c.day}, ${c.slot}节)`
+            ).join('\n');
+            if (this.conflictDetails.length > 5) {
+                message += `\n... 还有 ${this.conflictDetails.length - 5} 个冲突`;
+            }
+            warningElement.textContent = message;
             warningElement.style.display = 'block';
         } else {
             warningElement.style.display = 'none';
@@ -614,37 +644,42 @@ class ConflictDetectionGantt {
     detectConflictsForSave() {
         const calendar = {};
         const conflicts = [];
-        
+        const reportedConflicts = new Set();
+
         // 添加调试信息
         const isMobile = window.innerWidth <= 768;
         if (isMobile) {
             console.log('移动端冲突检测开始，课程数量:', this.courses.length);
         }
-        
+
         for (const course of this.courses) {
             if (isMobile) {
                 console.log('检测课程:', course.name, '安排数量:', course.schedules.length);
             }
-            
+
             for (const schedule of course.schedules) {
                 const weeks = this.parseWeeks(schedule.weeks);
                 const day = schedule.day;
                 const timeParts = schedule.time_slot.split('-').map(Number);
-                
+
                 if (timeParts.length === 2 && !isNaN(timeParts[0]) && !isNaN(timeParts[1])) {
                     for (const week of weeks) {
                         for (let slot = timeParts[0]; slot <= timeParts[1]; slot++) {
                             const key = `${week}-${day}-${slot}`;
                             if (calendar[key]) {
-                                conflicts.push({
-                                    course1: calendar[key],
-                                    course2: course.name,
-                                    week: week,
-                                    day: day,
-                                    slot: slot
-                                });
-                                if (isMobile) {
-                                    console.log('发现冲突:', calendar[key], 'vs', course.name, '在', key);
+                                const existingCourseName = calendar[key];
+                                if (existingCourseName !== course.name) {
+                                    const conflictKey = [existingCourseName, course.name].sort().join('-');
+                                    if (!reportedConflicts.has(conflictKey)) {
+                                        conflicts.push({
+                                            course1: existingCourseName,
+                                            course2: course.name,
+                                            week: week,
+                                            day: day,
+                                            slot: slot
+                                        });
+                                        reportedConflicts.add(conflictKey);
+                                    }
                                 }
                             } else {
                                 calendar[key] = course.name;
@@ -654,22 +689,22 @@ class ConflictDetectionGantt {
                 }
             }
         }
-        
+
         if (isMobile) {
             console.log('移动端冲突检测完成，发现冲突数量:', conflicts.length);
         }
-        
+
         if (conflicts.length > 0) {
             let message = "检测到以下课程存在时间冲突：\n\n";
             conflicts.slice(0, 5).forEach(conflict => {
-                message += `- '${conflict.course1}' 与 '${conflict.course2}'\n  第${conflict.week}周, 星期${conflict.day}, 第${conflict.slot}节\n`;
+                message += `- '${conflict.course1}' 与 '${conflict.course2}'\n  (首次冲突于 第${conflict.week}周, 星期${conflict.day}, 第${conflict.slot}节)\n`;
             });
             if (conflicts.length > 5) {
                 message += `\n... 还有 ${conflicts.length - 5} 个冲突`;
             }
             return { hasConflict: true, message: message };
         }
-        
+
         return { hasConflict: false };
     }
 }
