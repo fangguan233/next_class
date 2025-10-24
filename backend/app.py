@@ -338,16 +338,33 @@ async def call_vision_model_with_correction(base64_images):
 
         # 2. 调用AI模型
         try:
+            # 第一次调用：获取完整思考过程和回复
+            reasoning_content = ""
+            answer_content = ""
+            is_answering = False
+
             completion = client.chat.completions.create(
-                model="qvq-max-latest",
+                model="qwen3-vl-plus",
                 messages=[{"role": "user", "content": content}],
-                stream=True
+                stream=True,
+                extra_body={
+                    'enable_thinking': True,
+                    "thinking_budget": 81920
+                }
             )
-            full_response = "".join(
-                chunk.choices[0].delta.content
-                for chunk in completion
-                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content
-            )
+
+            for chunk in completion:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if hasattr(delta, 'reasoning_content') and delta.reasoning_content is not None:
+                    reasoning_content += delta.reasoning_content
+                elif delta.content is not None:
+                    if not is_answering:
+                        is_answering = True
+                    answer_content += delta.content
+
+            full_response = answer_content
             print(f"第 {i+1} 次尝试，AI返回: {full_response[:200]}...")
 
             if full_response.strip().startswith("```json"):
