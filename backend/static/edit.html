@@ -58,10 +58,10 @@
             padding: 0;
         }
         .course-body.active {
-            max-height: 1000px; /* 一个足够大的值 */
+            max-height: none; /* 移除高度限制，确保所有内容都能完整显示 */
             overflow: visible;
             padding: 1rem 0;
-            transition: max-height 0.5s ease-in, padding 0.5s ease-in;
+            transition: padding 0.5s ease-in; /* 移除 max-height 的过渡效果 */
         }
     </style>
     <script src="js/cache-manager.js"></script>
