@@ -1,0 +1,216 @@
+ <!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日程管理</title>
+    <link rel="icon" href="/static/favicon.png" type="image/png">
+    <script>
+        // Anti-flicker script
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+    <script src="vender/tailwindcss.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        light: {
+                            bg: '#f0f5ff',
+                            text: '#333',
+                            card: '#fff',
+                            input: '#fff',
+                            inputBorder: '#d9d9d9',
+                            btn: '#4096ff',
+                            btnHover: '#1677ff',
+                            btnDanger: '#ff4d4f',
+                            btnDangerHover: '#d9363e'
+                        },
+                        dark: {
+                            bg: '#121212',
+                            text: '#E0E0E0',
+                            card: '#1A1A1A',
+                            input: '#222222',
+                            inputBorder: '#3A3A3A',
+                            btn: '#003366',
+                            btnHover: '#002244',
+                            btnText: '#FFFFFF',
+                            btnDanger: '#CF6679',
+                            btnDangerHover: '#E57373'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #4b5563; }
+        .course-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+            padding: 0;
+        }
+        .course-body.active {
+            max-height: none; /* 移除高度限制，确保所有内容都能完整显示 */
+            overflow: visible;
+            padding: 1rem 0;
+            transition: padding 0.5s ease-in; /* 移除 max-height 的过渡效果 */
+        }
+    </style>
+    <script src="js/cache-manager.js"></script>
+</head>
+<body class="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text font-sans min-h-screen flex flex-col items-center p-4 transition-colors duration-300">
+    <div class="w-full max-w-4xl mx-auto bg-light-card dark:bg-dark-card rounded-2xl shadow-xl p-6 sm:p-8 transition-all duration-500 ease-in-out transform opacity-0 translate-y-4" id="main-container">
+        <h1 class="text-2xl sm:text-3xl font-bold text-light-accent dark:text-dark-accent mb-6 text-center">日程管理</h1>
+        
+        <!-- Pending TimeConfig Banner (shown via JS) -->
+        <div id="pending-timeconfig-banner" class="hidden mb-6 p-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-100">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <div class="font-semibold text-sm">宸叉湁鏈繚瀛樼殑鏃堕棿閰嶇疆鏇存敼</div>
+                    <div class="text-xs opacity-80 mt-1">璇峰湪鈥滀繚瀛樻墍鏈夋洿鏀光€濇椂涓€骞朵繚瀛樸€傦紙涓嶄細淇敼寮€瀛︽棩鏈燂級</div>
+                </div>
+                <button id="pending-timeconfig-clear-btn" class="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition">娓呴櫎</button>
+            </div>
+        </div>
+
+        <div id="courses-container" class="space-y-6">
+            <!-- 课程条目将在这里动态生成 -->
+        </div>
+
+        <div class="mt-6">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-semibold">考试日程</h2>
+                <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                    <label class="flex items-center gap-2">
+                        <input id="show-hidden-exams" type="checkbox" class="h-4 w-4 accent-yellow-500">
+                        <span>显示已隐藏考试（仅本次）</span>
+                    </label>
+                </div>
+            </div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mb-3">考试结束 24 小时后会自动隐藏，不会在主页重新显示。</div>
+            <div id="exams-container" class="space-y-4"></div>
+        </div>
+
+        <div class="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+            <button id="add-course-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out">
+                添加课程
+            </button>
+            <button id="add-exam-btn" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out">
+                添加考试
+            </button>
+            <button id="ai-assistant-btn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out">
+                AI 助手
+            </button>
+            <button id="gantt-view-btn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out">
+                条状图
+            </button>
+            <button id="save-changes-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out">
+                保存
+            </button>
+            <button onclick="window.location.href='index.html'" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out">
+                返回主页
+            </button>
+        </div>
+
+        <!-- GitHub Star Link -->
+        <div class="mt-8 text-center">
+            <a href="https://github.com/fangguan233/next_class" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-xs text-gray-500 dark:text-gray-400 hover:text-light-btn dark:hover:text-dark-btn transition-colors duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="mr-2" viewBox="0 0 16 16">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                如果喜欢本项目请 Star
+            </a>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const mainContainer = document.getElementById('main-container');
+            setTimeout(() => {
+                mainContainer.classList.remove('opacity-0', 'translate-y-4');
+            }, 100);
+        });
+    </script>
+
+    <!-- AI Assistant: Floating Action Button (FAB) -->
+    <button id="ai-assistant-fab" class="fixed bottom-20 right-4 z-[60] w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95">
+        <span class="text-sm font-bold">AI</span>
+    </button>
+
+    <!-- AI Assistant: Bottom Sheet -->
+    <div id="ai-assistant-overlay" class="fixed inset-0 z-[70] hidden">
+        <div id="ai-assistant-backdrop" class="absolute inset-0 bg-black/50 opacity-0 transition-opacity duration-300"></div>
+        <div id="ai-assistant-sheet" class="absolute inset-x-0 bottom-0 translate-y-full transition-transform duration-300">
+            <div class="bg-light-card dark:bg-dark-card rounded-t-2xl shadow-2xl max-h-[85vh] overflow-hidden flex flex-col">
+                <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-start justify-between gap-3">
+                    <div>
+                        <div class="text-lg font-semibold">AI 助手</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">逐课程分步修改，可逐条保留/跳过</div>
+                    </div>
+                    <button id="ai-assistant-close" class="p-2 -m-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition" aria-label="Close">✕</button>
+                </div>
+
+                <div class="p-4 overflow-y-auto custom-scrollbar space-y-4">
+                    <div class="p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-light-bg dark:bg-dark-bg text-sm text-gray-600 dark:text-gray-300">
+                        AI 会根据你的描述自动判断：添加 / 删除 / 修改（可一次返回多条建议，逐条确认）。
+                    </div>
+
+                    <div id="ai-assistant-target-wrapper">
+                        <label class="block text-sm font-medium mb-1">可选：指定目标课程（更安全）</label>
+                        <select id="ai-assistant-course-select" class="w-full p-2 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"></select>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">若指定目标课程，AI 的删除/修改只会作用于该课程（添加课程不受影响）。</div>
+                    </div>
+
+                    <div class="flex items-start justify-between gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-light-bg dark:bg-dark-bg">
+                        <div>
+                            <div class="text-sm font-semibold">允许建议“时间配置”调整</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">仅对 `timeConfig` 生效；不会修改开学日期，也需要你确认后才能应用。</div>
+                        </div>
+                        <input id="ai-assistant-allow-timeconfig" type="checkbox" class="mt-1 h-5 w-5 accent-indigo-600">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">你想怎么修改？（文字/搭配截图）</label>
+                        <textarea id="ai-assistant-input" rows="4" class="w-full p-2 text-sm rounded bg-light-input dark:bg-dark-input border border-light-inputBorder dark:border-dark-inputBorder focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" placeholder="例如：把高等数学改到周三 3-4 节，地点改为 A1-201；删除体育课；增加一门 Python 课程..."></textarea>
+                    </div>
+
+                    <div id="ai-assistant-image-section" class="hidden">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div class="text-sm font-medium">图片（最多3张）</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">默认关闭，可在后端启用图片处理</div>
+                            </div>
+                            <button id="ai-assistant-add-image" class="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">选择</button>
+                            <input id="ai-assistant-image-input" type="file" accept="image/*" multiple class="hidden">
+                        </div>
+                        <div id="ai-assistant-image-thumbs" class="mt-2 flex gap-2 overflow-x-auto"></div>
+                    </div>
+
+                    <div id="ai-assistant-status" class="hidden p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-light-bg dark:bg-dark-bg text-sm"></div>
+
+                    <div class="flex gap-2">
+                        <button id="ai-assistant-generate" class="flex-1 px-4 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed">生成建议</button>
+                        <button id="ai-assistant-clear" class="px-4 py-3 rounded-lg bg-gray-500 hover:bg-gray-600 text-white font-semibold shadow-md transition">清空</button>
+                    </div>
+
+                    <div id="ai-assistant-results" class="space-y-3"></div>
+                </div>
+
+                <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
+                    <button id="ai-assistant-apply" class="flex-1 px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>应用已选更改</button>
+                    <button id="ai-assistant-close-bottom" class="px-4 py-3 rounded-lg bg-gray-500 hover:bg-gray-600 text-white font-semibold shadow-md transition">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="js/edit.js"></script>
+    <script src="sw-register.js"></script>
+</body>
+</html>

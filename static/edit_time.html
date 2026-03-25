@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑时间段</title>
+    <link rel="icon" href="/static/favicon.png" type="image/png">
+    <script>
+        // Anti-flicker script
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+    <script src="vender/tailwindcss.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        light: {
+                            bg: '#f0f5ff',
+                            text: '#333',
+                            card: '#fff',
+                            input: '#fff',
+                            inputBorder: '#d9d9d9',
+                            btn: '#4096ff',
+                            btnHover: '#1677ff',
+                            btnDanger: '#ff4d4f',
+                            btnDangerHover: '#d9363e'
+                        },
+                        dark: {
+                            bg: '#121212',
+                            text: '#E0E0E0',
+                            card: '#1A1A1A',
+                            input: '#222222',
+                            inputBorder: '#3A3A3A',
+                            btn: '#003366',
+                            btnHover: '#002244',
+                            btnText: '#FFFFFF',
+                            btnDanger: '#CF6679',
+                            btnDangerHover: '#E57373',
+                            accent: '#4096ff'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #4b5563; }
+    </style>
+    <script src="js/cache-manager.js"></script>
+</head>
+<body class="bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text font-sans min-h-screen flex flex-col items-center p-4 transition-colors duration-300">
+    <div class="w-full max-w-2xl mx-auto bg-light-card dark:bg-dark-card rounded-2xl shadow-xl p-6 sm:p-8 transition-all duration-500 ease-in-out transform opacity-0 translate-y-4" id="main-container">
+        <h1 class="text-2xl sm:text-3xl font-bold text-light-accent dark:text-dark-accent mb-6 text-center">时间段管理</h1>
+        
+        <div class="mb-6">
+            <h2 class="text-lg font-semibold mb-3 text-center">选择预设模板</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button id="template-default" class="w-full px-4 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">默认模板 (8:20开课)</button>
+<button id="template-standard" class="w-full px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200">标准模板 (8:00开课)</button>
+</div>
+        </div>
+
+        <div class="border-t border-b border-gray-200 dark:border-gray-700 my-6 py-6">
+            <h2 class="text-lg font-semibold mb-3 text-center">开学日期设置</h2>
+            <div class="flex flex-col items-center">
+                <label for="start-date" class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">请选择本学期的开学第一天 (必须是周一)</label>
+                <input type="date" id="start-date" class="w-full max-w-xs p-2 border rounded-lg bg-light-input dark:bg-dark-input border-light-inputBorder dark:border-dark-inputBorder focus:ring-2 focus:ring-light-btn dark:focus:ring-dark-accent focus:border-transparent transition">
+            </div>
+        </div>
+
+        <div id="time-slots-container" class="space-y-4 max-h-[40vh] overflow-y-auto custom-scrollbar pr-2">
+            <!-- 时间段将在这里动态加载 -->
+        </div>
+
+        <div class="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
+            <button id="add-slot-btn" class="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg">
+                <i class="fas fa-plus mr-2"></i> 添加时间段
+            </button>
+            <button id="save-btn" class="w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg">
+                <i class="fas fa-save mr-2"></i> 保存时间设置
+            </button>
+            <button onclick="window.location.href='index.html'" class="w-full sm:w-auto px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg">
+                <i class="fas fa-arrow-left mr-2"></i> 返回主页
+            </button>
+        </div>
+
+        <!-- GitHub Star Link -->
+        <div class="mt-8 text-center">
+            <a href="https://github.com/fangguan233/next_class" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-xs text-gray-500 dark:text-gray-400 hover:text-light-btn dark:hover:text-dark-btn transition-colors duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="mr-2" viewBox="0 0 16 16">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                如果喜欢本项目请 Star
+            </a>
+        </div>
+    </div>
+    </div>
+    <script>
+document.addEventListener('DOMContentLoaded', () => {
+            const mainContainer = document.getElementById('main-container');
+            setTimeout(() => {
+                mainContainer.classList.remove('opacity-0', 'translate-y-4');
+            }, 100);
+        });
+    </script>
+    <script src="js/edit_time.js"></script>
+    <script src="sw-register.js"></script>
+</body>
+</html>

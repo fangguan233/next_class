@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>下一节课查询</title>
+    <link rel="icon" href="/static/favicon.png" type="image/png">
+    <script>
+        // Anti-flicker script
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+    <!-- 本地化 Tailwind CSS -->
+    <script src="vender/tailwindcss.js"></script>
+    <script>
+        // 配置Tailwind主题
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        light: {
+                            bg: '#e6f4ff',
+                            text: '#333333',
+                            card: '#ffffff',
+                            btn: '#4096ff', // Bright blue for light mode
+                            btnHover: '#1677ff',
+                            result: '#f6fbff'
+                        },
+                        dark: {
+                            bg: '#121212',
+                            text: '#E0E0E0',
+                            card: '#1A1A1A',
+                            input: '#222222',
+                            btn: '#003366', // Deep Blue
+                            btnHover: '#002244',
+                            btnText: '#FFFFFF', // White Text
+                            result: '#1A1A1A'
+                        }
+                    },
+                    scale: {
+                        '102': '1.02',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 自定义滚动条样式 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: var(--scrollbar-color, #4096ff);
+            border-radius: 20px;
+        }
+        
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: var(--scrollbar-color-dark, #003366);
+        }
+        
+        @media (max-width: 640px) {
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 5px;
+            }
+        }
+        
+        /* 输入框聚焦样式 */
+        .focus-ring:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(64, 150, 255, 0.5);
+        }
+        
+        .dark .focus-ring:focus {
+            box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.5);
+        }
+
+        /* 弹窗样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 90%;
+            width: 400px;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+        .dark .modal-content {
+            background: #1A1A1A;
+        }
+        .modal-overlay.visible .modal-content {
+            transform: scale(1);
+        }
+
+        /* Toast 样式 */
+        #toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        #toast.show {
+            opacity: 1;
+            transform: translate(-50%, -10px);
+        }
+    </style>
+    <script src="js/cache-manager.js"></script>
+</head>
+<body class="bg-light-bg dark:bg-dark-bg font-sans m-0 p-4 text-light-text dark:text-dark-text transition-colors duration-300 min-h-screen flex flex-col justify-center items-center">
+    <div id="toast"></div>
+    <div class="w-full max-w-md mx-auto p-6 sm:p-8 bg-light-card dark:bg-dark-card rounded-xl shadow-lg transition-all duration-500 ease-in-out transform opacity-0 translate-y-4" id="main-container">
+        <h1 class="text-xl sm:text-2xl font-bold text-light-text dark:text-dark-text mb-6 text-center">课程设置</h1>
+        
+        <div class="relative w-full mb-4">
+            <textarea id="inputArea" placeholder="请在此处粘贴课程数据，或点击右下角图标上传课程表图片..." class="w-full h-[120px] sm:h-[150px] p-4 pr-12 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm sm:text-base text-gray-800 dark:text-gray-200 focus-ring custom-scrollbar resize-none transition-all duration-200 focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent"></textarea>
+            <div id="image-upload-icon" class="absolute bottom-3 right-3 cursor-pointer text-gray-400 hover:text-light-btn dark:hover:text-dark-btn transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- 图片预览容器 -->
+        <div id="image-preview-container" class="hidden mb-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+            <!-- 缩略图将在这里动态生成 -->
+        </div>
+        
+        <div class="mb-6">
+            <label for="start-date" class="block text-sm sm:text-base mb-2 font-medium">选择开学第一天（周一）：</label>
+            <input type="date" id="start-date" required class="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus-ring transition-colors duration-200">
+        </div>
+        
+        <!-- 按钮容器，垂直排列 -->
+        <div class="space-y-3">
+            <button onclick="processData()" class="w-full p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg text-sm sm:text-base font-medium flex justify-center items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+                导入数据
+            </button>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="window.location.href='edit.html'" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg text-sm sm:text-base font-medium">日程管理</button>
+                <button onclick="window.location.href='edit_time.html'" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg text-sm sm:text-base font-medium">时间管理</button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="importWithShareCode()" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg text-sm sm:text-base font-medium flex justify-center items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
+                    </svg>
+                    通过分享码导入
+                </button>
+                <button onclick="toggleDarkMode()" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg text-sm sm:text-base font-medium flex justify-center items-center" id="dark-mode-toggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                    </svg>
+                    切换模式
+                </button>
+            </div>
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="generateScheduleImage('总课程表', true)" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg text-sm sm:text-base font-medium">
+                导出总课表
+            </button>
+             <button onclick="generateScheduleImage('本周课程表', false)" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg text-sm sm:text-base font-medium">
+                导出本周课表
+            </button>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="shareSchedule()" class="p-3 sm:p-4 bg-light-btn dark:bg-dark-btn text-white dark:text-dark-text hover:bg-light-btnHover dark:hover:bg-dark-btnHover border-none rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg text-sm sm:text-base font-medium">
+                分享课程表
+            </button>
+            <button onclick="clearLocalStorage()" class="p-3 sm:p-4 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg">
+                清除本地数据
+            </button>
+        </div>
+         <button onclick="goToNextClass()" class="w-full p-3 sm:p-4 bg-green-500 hover:bg-green-600 text-white border-none rounded-lg cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-95 hover:shadow-lg text-sm sm:text-base font-medium flex justify-center items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd" />
+                </svg>
+                前往课程界面
+            </button>
+        </div>
+        
+        <input type="file" id="import-file" accept=".json" class="hidden">
+        <input type="file" id="image-importer" accept="image/*" class="hidden" multiple>
+        
+        <div id="result" class="mt-6 p-5 bg-light-result dark:bg-dark-result border border-light-bg dark:border-gray-700 rounded-lg text-light-text dark:text-dark-text text-sm sm:text-base custom-scrollbar max-h-[300px] overflow-auto hidden"></div>
+        
+        <div id="jsonView" class="text-light-text dark:text-dark-text"></div>
+        
+        <!-- 本周课程表 -->
+        <div id="weekly-schedule" class="mt-6 p-5 bg-light-result dark:bg-dark-result border border-light-bg dark:border-gray-700 rounded-lg text-light-text dark:text-dark-text text-sm sm:text-base custom-scrollbar max-h-[300px] overflow-auto hidden"></div>
+
+        <!-- GitHub Star Link -->
+        <div class="mt-6 text-center">
+            <a href="https://github.com/fangguan233/next_class" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-xs text-gray-500 dark:text-gray-400 hover:text-light-btn dark:hover:text-dark-btn transition-colors duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="mr-2" viewBox="0 0 16 16">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                如果喜欢本项目请 Star
+            </a>
+        </div>
+    </div>
+
+    <!-- 弹窗 -->
+    <div id="shareModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="modalTitle" class="text-xl font-bold mb-4"></h2>
+            <div id="modalBody"></div>
+            <div id="modalActions" class="mt-6 flex justify-end gap-3"></div>
+        </div>
+    </div>
+    
+    <script src="vender/html2canvas.min.js"></script>
+    <script src="vender/qrcode.min.js"></script>
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const mainContainer = document.getElementById('main-container');
+            setTimeout(() => {
+                mainContainer.classList.remove('opacity-0', 'translate-y-4');
+            }, 100);
+
+            // The anti-flicker script in <head> now handles the initial theme.
+            // We just need to set the correct scrollbar color and button text.
+            if (localStorage.getItem('theme') === 'dark') {
+                document.documentElement.style.setProperty('--scrollbar-color', '#003366');
+            } else {
+                document.documentElement.style.setProperty('--scrollbar-color', '#4096ff');
+            }
+            updateModeButtonText(); // 初始化时更新按钮文本
+            
+            // 显示结果区域（如果有内容）
+            const result = document.getElementById('result');
+            const weeklySchedule = document.getElementById('weekly-schedule');
+            if (result.textContent.trim()) {
+                result.classList.remove('hidden');
+            }
+            if (weeklySchedule.textContent.trim()) {
+                weeklySchedule.classList.remove('hidden');
+            }
+        });
+
+        // 暗色/亮色模式切换函数
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const currentMode = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            localStorage.setItem('theme', currentMode); // 保存用户选择的主题
+            updateModeButtonText(); // 更新按钮文本以反映当前模式
+            
+            // 设置滚动条颜色变量
+            document.documentElement.style.setProperty('--scrollbar-color', currentMode === 'dark' ? '#003366' : '#4096ff');
+        }
+
+        // 更新模式切换按钮的文本
+        function updateModeButtonText() {
+const btn = document.getElementById('dark-mode-toggle');
+            if (!btn) return; // Guard against null
+            
+            if (document.documentElement.classList.contains('dark')) {
+                btn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" />
+                    </svg>
+                    亮色模式
+                `;
+            } else {
+                btn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                    </svg>
+                    暗色模式
+                `;
+            }
+        }
+    </script>
+    <script src="sw-register.js"></script>
+</body>
+</html>
